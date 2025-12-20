@@ -1,0 +1,43 @@
+name: happy_russia
+description: Битва Регионов - приложение для отслеживания настроения по регионам России
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Управление состоянием
+  provider: ^6.1.1
+  
+  # Геолокация
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  
+  # HTTP запросы
+  dio: ^5.4.0
+  
+  # Локальное хранилище
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  
+  # Утилиты
+  intl: ^0.18.1
+  uuid: ^4.2.1
+  image_picker: ^1.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/herbs/
+    - регионы.md
+

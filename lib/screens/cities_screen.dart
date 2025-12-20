@@ -1,0 +1,336 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/city_mood.dart';
+import '../models/region_mood.dart';
+import '../providers/mood_provider.dart';
+import 'districts_screen.dart';
+
+/// Экран с рейтингом городов региона
+class CitiesScreen extends StatefulWidget {
+  final RegionMood region;
+
+  const CitiesScreen({
+    super.key,
+    required this.region,
+  });
+
+  @override
+  State<CitiesScreen> createState() => _CitiesScreenState();
+}
+
+class _CitiesScreenState extends State<CitiesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<MoodProvider>().loadCitiesRanking(widget.region.id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Города ${widget.region.name}'),
+        elevation: 0,
+      ),
+      body: Consumer<MoodProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoadingCities && provider.cities.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.errorCities != null && provider.cities.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Ошибка: ${provider.errorCities}'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => provider.loadCitiesRanking(widget.region.id),
+                    child: const Text('Повторить'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (provider.cities.isEmpty) {
+            return Center(
+              child: Text(
+                'Нет данных о городах',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              // Заголовок с информацией о регионе
+              Container(
+                width: double.infinity, // На всю ширину
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white, // Белый
+                      const Color(0xFF0039A6), // Синий
+                      const Color(0xFFD52B1E), // Красный
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Рейтинг городов',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Средний балл региона: ${widget.region.averageMood.toStringAsFixed(2)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Список городов
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => provider.loadCitiesRanking(widget.region.id),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: provider.cities.length,
+                    itemBuilder: (context, index) {
+                      return _buildCityCard(provider.cities[index], index + 1, theme);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCityCard(CityMood city, int rank, ThemeData theme) {
+    final moodColor = _getColorByMood(city.averageMood);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      elevation: 4,
+      shadowColor: const Color(0xFF0039A6), // Синий цвет российского флага
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DistrictsScreen(city: city),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            // Смайлик настроения с оценкой в правом верхнем углу
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: moodColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      city.moodLevel.emoji,
+                      style: const TextStyle(fontSize: 36),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${city.averageMood.toStringAsFixed(1)}/5',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Номер города, название и население в левом верхнем углу
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Номер города
+                  Container(
+                    width: 45,
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: moodColor.withOpacity(0.2), // Цвет настроения
+                      borderRadius: BorderRadius.circular(8), // Закругленные углы
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0039A6), // Синий цвет российского флага
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Название города и население
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            city.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0039A6), // Синий цвет российского флага
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${city.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 45, left: 16, right: 16, bottom: 16),
+              child: Row(
+                children: [
+                  // Информация о городе
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const SizedBox(width: 8),
+                            // Иконка человечка и количество проголосовавших
+                            Icon(
+                              Icons.person_outline,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${city.totalCheckIns.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const Spacer(), // Растягиваем пространство
+                            // Процент над правым краем прогресс-бара
+                            Padding(
+                              padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: moodColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${city.happyPercentage.toStringAsFixed(2)}%',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: moodColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Прогресс-бар (растягивается до смайлика)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: city.averageMood / 5.0,
+                              minHeight: 8,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: AlwaysStoppedAnimation<Color>(moodColor),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getColorByMood(double mood) {
+    if (mood >= 4.5) return Colors.green[600]!;
+    if (mood >= 4.0) return Colors.green[400]!;
+    if (mood >= 3.5) return Colors.lightGreen[400]!;
+    if (mood >= 3.0) return Colors.yellow[600]!;
+    if (mood >= 2.5) return Colors.orange[400]!;
+    if (mood >= 2.0) return Colors.deepOrange[400]!;
+    return Colors.red[600]!;
+  }
+}
+
