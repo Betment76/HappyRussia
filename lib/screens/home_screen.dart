@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/mood_provider.dart';
-import '../models/region_mood.dart';
+import '../widgets/mood_cards.dart';
 import 'check_in_screen.dart';
 import 'profile_screen.dart';
-import 'cities_screen.dart';
 import 'federal_districts_screen.dart';
 import 'all_cities_screen.dart';
 
@@ -64,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   String _getHeaderSubtitle() {
     switch (_currentTabIndex) {
       case 0:
-        return 'Средний уровень счастья по федеральным округам';
+        return 'Средний уровень счастья по округам';
       case 1:
         return 'Средний уровень счастья по России';
       case 2:
@@ -80,12 +79,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('⚔️ '),
-            const Text('Битва Регионов'),
-          ],
+        title: const Text(
+          'Моё Настроение',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0039A6),
+          ),
+          textAlign: TextAlign.center,
         ),
+        centerTitle: true,
         elevation: 0,
         actions: [
           IconButton(
@@ -229,16 +231,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           )
                         : RefreshIndicator(
                             onRefresh: () => provider.loadRegionsRanking(),
-                            child: ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: provider.regions.length,
-                              itemBuilder: (context, index) {
-                                return _buildRegionCard(
-                                  provider.regions[index],
-                                  theme,
-                                );
-                              },
-                            ),
+                            child: _buildRegionsList(provider, theme),
                           ),
                     // Вкладка "Города"
                     const AllCitiesScreen(),
@@ -294,211 +287,45 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// Карточка региона
-  Widget _buildRegionCard(RegionMood region, ThemeData theme) {
-    final moodColor = _getColorByMood(region.averageMood);
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 4,
-      shadowColor: const Color(0xFF0039A6), // Синий цвет российского флага
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CitiesScreen(region: region),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
+  /// Построить список регионов (только с зарегистрированными пользователями)
+  Widget _buildRegionsList(MoodProvider provider, ThemeData theme) {
+    // Фильтруем регионы: показываем только те, где есть хотя бы один чек-ин
+    final filteredRegions = provider.regions
+        .where((region) => region.totalCheckIns > 0)
+        .toList();
+
+    if (filteredRegions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Смайлик настроения с оценкой в правом верхнем углу
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: moodColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      region.moodLevel.emoji,
-                      style: const TextStyle(fontSize: 36),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${region.averageMood.toStringAsFixed(1)}/5',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+            Icon(
+              Icons.sentiment_neutral,
+              size: 64,
+              color: Colors.grey[400],
             ),
-            // Номер региона, название и население в левом верхнем углу
-            Positioned(
-              top: 8,
-              left: 8,
-              right: 8,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Номер региона
-                  Container(
-                    width: 45,
-                    height: 45 ,
-                    decoration: BoxDecoration(
-                      color: moodColor.withOpacity(0.2), // Цвет настроения
-                      borderRadius: BorderRadius.circular(8), // Закругленные углы
-                    ),
-                    child: Center(
-                      child: Text(
-                        region.id,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0039A6), // Синий цвет российского флага
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Название региона и население
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 1),
-                          child: Text(
-                            region.name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0039A6), // Синий цвет российского флага
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people_outline,
-                              size: 14,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${region.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 16),
+            Text(
+              'Нет регионов с зарегистрированными пользователями',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.grey[600],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 45, left: 16, right: 16, bottom: 16),
-              child: Row(
-                children: [
-                  // Информация о регионе
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        // Иконка человечка и количество проголосовавших
-                        Icon(
-                          Icons.person_outline,
-                          size: 16,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${region.totalCheckIns.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const Spacer(), // Растягиваем пространство
-                        // Процент над правым краем прогресс-бара
-                        Padding(
-                          padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: moodColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${region.happyPercentage.toStringAsFixed(2)}%',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: moodColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Прогресс-бар (растягивается до смайлика)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: region.averageMood / 5.0,
-                          minHeight: 8,
-                          backgroundColor: Colors.grey[200],
-                          valueColor: AlwaysStoppedAnimation<Color>(moodColor),
-                        ),
-                      ),
-                    ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  /// Получить цвет по уровню настроения
-  Color _getColorByMood(double mood) {
-    if (mood >= 4.5) return Colors.green[600]!;
-    if (mood >= 4.0) return Colors.green[400]!;
-    if (mood >= 3.5) return Colors.lightGreen[400]!;
-    if (mood >= 3.0) return Colors.yellow[600]!;
-    if (mood >= 2.5) return Colors.orange[400]!;
-    if (mood >= 2.0) return Colors.deepOrange[400]!;
-    return Colors.red[600]!;
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: filteredRegions.length,
+      itemBuilder: (context, index) {
+        return RegionCard(
+          region: filteredRegions[index],
+          isClickable: true,
+        );
+      },
+    );
   }
 }

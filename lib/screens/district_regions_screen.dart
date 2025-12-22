@@ -34,9 +34,9 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
         .map((r) => r['id']!)
         .toSet();
     
-    // Фильтруем регионы по ID
+    // Фильтруем регионы по ID и показываем только те, где есть хотя бы один чек-ин
     _filteredRegions = provider.regions
-        .where((region) => regionIds.contains(region.id))
+        .where((region) => regionIds.contains(region.id) && region.totalCheckIns > 0)
         .toList()
       ..sort((a, b) => b.averageMood.compareTo(a.averageMood));
     

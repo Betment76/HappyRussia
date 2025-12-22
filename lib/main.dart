@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/mood_provider.dart';
 import 'screens/initial_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Инициализируем локализацию для русского языка
+  await initializeDateFormatting('ru_RU', null);
   runApp(const MyApp());
 }
 
@@ -15,7 +19,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => MoodProvider(),
       child: MaterialApp(
-        title: 'Битва Регионов',
+        title: 'Моё Настроение',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/check_in.dart';
 import '../models/region_mood.dart';
@@ -8,6 +9,10 @@ class StorageService {
   static const String _checkInsKey = 'check_ins';
   static const String _regionsKey = 'regions_cache';
   static const String _lastSyncKey = 'last_sync';
+  static const String _profileNameKey = 'profile_name';
+  static const String _profileImagePathKey = 'profile_image_path';
+  static const String _profileLocationKey = 'profile_location';
+  static const String _profilePhoneKey = 'profile_phone';
 
   /// Сохранить чек-ин локально
   Future<void> saveCheckIn(CheckIn checkIn) async {
@@ -73,6 +78,77 @@ class StorageService {
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+  }
+
+  /// Сохранить данные профиля
+  Future<void> saveProfile({
+    required String name,
+    required String imagePath,
+    required String location,
+    String? phone,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Отладочный вывод
+      debugPrint('StorageService.saveProfile вызван:');
+      debugPrint('  Имя: $name');
+      debugPrint('  Путь к фото: $imagePath');
+      debugPrint('  Местоположение: $location');
+      debugPrint('  Ключи: $_profileNameKey, $_profileImagePathKey, $_profileLocationKey');
+      
+      final nameResult = await prefs.setString(_profileNameKey, name);
+      // Сохраняем путь к фото только если он не пустой
+      final imageResult = imagePath.isNotEmpty 
+          ? await prefs.setString(_profileImagePathKey, imagePath)
+          : await prefs.remove(_profileImagePathKey);
+      final locationResult = await prefs.setString(_profileLocationKey, location);
+      // Сохраняем или удаляем телефон
+      if (phone != null && phone.isNotEmpty) {
+        await prefs.setString(_profilePhoneKey, phone);
+      } else {
+        await prefs.remove(_profilePhoneKey);
+      }
+      
+      debugPrint('Результаты сохранения: name=$nameResult, image=$imageResult, location=$locationResult');
+      
+      // Проверяем, что данные действительно сохранились
+      final savedName = prefs.getString(_profileNameKey);
+      final savedImage = prefs.getString(_profileImagePathKey);
+      final savedLocation = prefs.getString(_profileLocationKey);
+      
+      debugPrint('Проверка сохраненных данных:');
+      debugPrint('  Сохраненное имя: $savedName');
+      debugPrint('  Сохраненный путь: $savedImage');
+      debugPrint('  Сохраненное местоположение: $savedLocation');
+    } catch (e) {
+      print('Ошибка при сохранении профиля: $e');
+      rethrow;
+    }
+  }
+
+  /// Получить имя профиля
+  Future<String?> getProfileName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_profileNameKey);
+  }
+
+  /// Получить путь к фото профиля
+  Future<String?> getProfileImagePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_profileImagePathKey);
+  }
+
+  /// Получить место регистрации
+  Future<String?> getProfileLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_profileLocationKey);
+  }
+
+  /// Получить номер телефона профиля
+  Future<String?> getProfilePhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_profilePhoneKey);
   }
 }
 

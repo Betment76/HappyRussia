@@ -58,14 +58,72 @@ class _CitiesScreenState extends State<CitiesScreen> {
             );
           }
 
-          if (provider.cities.isEmpty) {
-            return Center(
-              child: Text(
-                'Нет данных о городах',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.grey[600],
+          // Фильтруем города: показываем только те, где есть хотя бы один чек-ин
+          final filteredCities = provider.cities
+              .where((city) => city.totalCheckIns > 0)
+              .toList();
+
+          if (filteredCities.isEmpty) {
+            return Column(
+              children: [
+                // Заголовок с информацией о регионе
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white,
+                        const Color(0xFF0039A6),
+                        const Color(0xFFD52B1E),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Рейтинг городов',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Средний балл региона: ${widget.region.averageMood.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.sentiment_neutral,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Нет городов с зарегистрированными пользователями',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           }
 
@@ -113,9 +171,9 @@ class _CitiesScreenState extends State<CitiesScreen> {
                   onRefresh: () => provider.loadCitiesRanking(widget.region.id),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: provider.cities.length,
+                    itemCount: filteredCities.length,
                     itemBuilder: (context, index) {
-                      return _buildCityCard(provider.cities[index], index + 1, theme);
+                      return _buildCityCard(filteredCities[index], index + 1, theme);
                     },
                   ),
                 ),

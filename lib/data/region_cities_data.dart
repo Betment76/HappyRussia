@@ -1130,7 +1130,7 @@ class RegionCitiesData {
     {'name': 'Данилов', 'population': 13677},
     ],
     '77': [
-    {'name': 'Москва', 'population': 0},
+    {'name': 'Москва', 'population': 13010112},
     {'name': 'Троицк', 'population': 73421},
     {'name': 'Зеленоград', 'population': 0},
     {'name': 'Щербинка', 'population': 0},
@@ -1249,4 +1249,20 @@ class RegionCitiesData {
     {'name': 'Байконур', 'population': 0},
     ],
   };
+
+  /// Получить население региона (сумма населения всех городов)
+  static int getPopulation(String regionId) {
+    final regionCities = cities[regionId];
+    if (regionCities == null || regionCities.isEmpty) {
+      return 0;
+    }
+    
+    int totalPopulation = 0;
+    for (var city in regionCities) {
+      final population = city['population'] as int? ?? 0;
+      totalPopulation += population;
+    }
+    
+    return totalPopulation;
+  }
 }

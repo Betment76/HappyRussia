@@ -3,7 +3,7 @@ import '../models/city_mood.dart';
 import '../models/district_mood.dart';
 import '../models/federal_district_mood.dart';
 import '../data/russian_regions.dart';
-import '../data/region_population.dart';
+import '../data/region_cities_data.dart';
 import '../data/region_cities.dart';
 import 'dart:math';
 
@@ -18,7 +18,7 @@ class MockService {
     return regions.map((regionData) {
       // Генерируем случайные данные для демонстрации
       final averageMood = 2.0 + _random.nextDouble() * 2.5; // От 2.0 до 4.5
-      final population = RegionPopulation.getPopulation(regionData['id']!);
+      final population = RegionCitiesData.getPopulation(regionData['id']!);
       // Защита от деления на ноль и отрицательных значений
       final maxCheckIns = population > 0 ? (population ~/ 100).clamp(1, 10000) : 100;
       final totalCheckIns = _random.nextInt(maxCheckIns) + 10; // От 10 до 1% населения
@@ -46,7 +46,7 @@ class MockService {
     }
 
     final averageMood = 2.0 + _random.nextDouble() * 2.5;
-    final population = RegionPopulation.getPopulation(regionId);
+    final population = RegionCitiesData.getPopulation(regionId);
     // Защита от деления на ноль и отрицательных значений
     final maxCheckIns = population > 0 ? (population ~/ 100).clamp(1, 10000) : 100;
     final totalCheckIns = _random.nextInt(maxCheckIns) + 10;
@@ -186,7 +186,7 @@ class MockService {
       // Вычисляем общее население округа
       int totalPopulation = 0;
       for (var region in regionsInDistrict) {
-        totalPopulation += RegionPopulation.getPopulation(region['id']!);
+        totalPopulation += RegionCitiesData.getPopulation(region['id']!);
       }
       
       // Генерируем случайные данные

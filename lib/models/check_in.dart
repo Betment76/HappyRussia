@@ -8,6 +8,12 @@ class CheckIn {
   final MoodLevel mood;
   final DateTime date;
   final String? userId; // Опционально для истории
+  
+  // Информация о городе или населенном пункте
+  final String? cityId; // ID города (если есть в RegionCitiesData)
+  final String? cityName; // Название города или населенного пункта
+  final String? federalDistrict; // Федеральный округ
+  final String? district; // Район (если это населенный пункт, а не город)
 
   CheckIn({
     required this.id,
@@ -16,6 +22,10 @@ class CheckIn {
     required this.mood,
     required this.date,
     this.userId,
+    this.cityId,
+    this.cityName,
+    this.federalDistrict,
+    this.district,
   });
 
   /// Создать из JSON
@@ -29,6 +39,10 @@ class CheckIn {
       ),
       date: DateTime.parse(json['date'] as String),
       userId: json['userId'] as String?,
+      cityId: json['cityId'] as String?,
+      cityName: json['cityName'] as String?,
+      federalDistrict: json['federalDistrict'] as String?,
+      district: json['district'] as String?,
     );
   }
 
@@ -41,6 +55,10 @@ class CheckIn {
       'mood': mood.value,
       'date': date.toIso8601String(),
       'userId': userId,
+      'cityId': cityId,
+      'cityName': cityName,
+      'federalDistrict': federalDistrict,
+      'district': district,
     };
   }
 }

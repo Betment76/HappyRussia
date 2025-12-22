@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'registration_screen.dart';
 import 'home_screen.dart';
+import '../services/storage_service.dart';
 
 /// Экран-обертка для проверки первого запуска
 class InitialScreen extends StatefulWidget {
@@ -12,20 +12,26 @@ class InitialScreen extends StatefulWidget {
 }
 
 class _InitialScreenState extends State<InitialScreen> {
+  final StorageService _storageService = StorageService();
   bool _isLoading = true;
-  bool _isFirstLaunch = false;
+  bool _isRegistered = false;
 
   @override
   void initState() {
     super.initState();
-    _checkFirstLaunch();
+    _checkRegistrationStatus();
   }
 
-  /// Проверить, первый ли это запуск приложения
-  Future<void> _checkFirstLaunch() async {
+  /// Проверить, зарегистрирован ли пользователь (по наличию данных профиля)
+  Future<void> _checkRegistrationStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _isFirstLaunch = prefs.getBool('is_first_launch') ?? true;
+      // Проверяем наличие данных профиля (имя и местоположение обязательны)
+      final name = await _storageService.getProfileName();
+      final location = await _storageService.getProfileLocation();
+      
+      // Пользователь зарегистрирован, если есть имя и местоположение
+      _isRegistered = name != null && name.isNotEmpty && 
+                      location != null && location.isNotEmpty;
 
       if (mounted) {
         setState(() {
@@ -33,10 +39,10 @@ class _InitialScreenState extends State<InitialScreen> {
         });
       }
     } catch (e) {
-      // В случае ошибки считаем, что это первый запуск
+      // В случае ошибки считаем, что пользователь не зарегистрирован
       if (mounted) {
         setState(() {
-          _isFirstLaunch = true;
+          _isRegistered = false;
           _isLoading = false;
         });
       }
@@ -45,22 +51,11 @@ class _InitialScreenState extends State<InitialScreen> {
 
   /// Обработка завершения регистрации
   Future<void> _onRegistrationComplete() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_first_launch', false);
-
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } catch (e) {
-      // В случае ошибки все равно переходим на главный экран
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
+    // Данные уже сохранены в StorageService, просто переходим на главный экран
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
     }
   }
 
@@ -74,8 +69,8 @@ class _InitialScreenState extends State<InitialScreen> {
       );
     }
 
-    // Если первый запуск - показываем экран регистрации
-    if (_isFirstLaunch) {
+    // Если пользователь не зарегистрирован - показываем экран регистрации
+    if (!_isRegistered) {
       return RegistrationScreen(
         onRegistrationComplete: _onRegistrationComplete,
       );

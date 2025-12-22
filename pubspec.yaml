@@ -1,5 +1,5 @@
 name: happy_russia
-description: Битва Регионов - приложение для отслеживания настроения по регионам России
+description: Моё Настроение - приложение для отслеживания настроения по регионам России
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -15,7 +15,7 @@ dependencies:
   
   # Геолокация
   geolocator: ^10.1.0
-  geocoding: ^2.1.1
+  geocoding: ^3.0.0
   
   # HTTP запросы
   dio: ^5.4.0

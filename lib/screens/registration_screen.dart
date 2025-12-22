@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../data/russian_regions.dart';
-import '../data/region_cities_data.dart';
-import '../data/region_districts_data.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/location_service.dart';
+import '../services/storage_service.dart';
 
 /// Экран регистрации пользователя
 class RegistrationScreen extends StatefulWidget {
@@ -20,119 +21,27 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
+  final LocationService _locationService = LocationService();
+  final StorageService _storageService = StorageService();
 
-  // Выбранные значения для места проживания
-  String? _selectedFederalDistrict;
-  String? _selectedRegion;
-  String? _selectedCity;
-  String? _selectedDistrict;
-  String? _selectedSettlement;
-
-  // Списки для выпадающих списков
-  List<String> _federalDistricts = [];
-  List<Map<String, String>> _regions = [];
-  List<Map<String, dynamic>> _cities = [];
-  List<String> _districts = [];
-  List<String> _settlements = [];
+  // Местоположение
+  UserLocation? _userLocation;
+  bool _isDetectingLocation = false;
 
   @override
   void initState() {
     super.initState();
-    _loadFederalDistricts();
   }
 
-  /// Загрузить список федеральных округов
-  void _loadFederalDistricts() {
-    setState(() {
-      _federalDistricts = RussianRegions.getFederalDistricts();
-    });
-  }
-
-  /// Загрузить регионы выбранного округа
-  void _loadRegions(String? district) {
-    setState(() {
-      _selectedRegion = null;
-      _selectedCity = null;
-      _selectedDistrict = null;
-      _selectedSettlement = null;
-      _regions = [];
-      _cities = [];
-      _districts = [];
-      _settlements = [];
-
-      if (district != null) {
-        _regions = RussianRegions.getByFederalDistrict(district);
-      }
-    });
-  }
-
-  /// Загрузить районы выбранного региона (районы области/края)
-  void _loadDistricts(String? regionId) {
-    setState(() {
-      _selectedCity = null;
-      _selectedDistrict = null;
-      _selectedSettlement = null;
-      _cities = [];
-      _districts = [];
-      _settlements = [];
-
-      if (regionId != null) {
-        // Загружаем реальные данные о районах региона
-        _districts = RegionDistrictsData.getDistrictsForRegion(regionId);
-        
-        // Если данных нет, используем моковые данные
-        if (_districts.isEmpty) {
-          _districts = [
-            'Центральный район',
-            'Северный район',
-            'Южный район',
-            'Восточный район',
-            'Западный район',
-            'Городской район',
-            'Сельский район',
-          ];
-        }
-        
-        // Загружаем города для выбора (если район не выбран)
-        _loadCities(regionId);
-      }
-    });
-  }
-
-  /// Загрузить города выбранного региона (для справки, неактивен)
-  void _loadCities(String? regionId) {
-    setState(() {
-      _selectedCity = null;
-      _cities = [];
-
-      if (regionId != null) {
-        _cities = RegionCitiesData.cities[regionId] ?? [];
-      }
-    });
-  }
-
-  /// Загрузить поселки/деревни выбранного района (моковые данные)
-  void _loadSettlements(String? districtName) {
-    setState(() {
-      _selectedSettlement = null;
-      _settlements = [];
-
-      if (districtName != null) {
-        // Моковые данные для поселков/деревень в районе
-        _settlements = [
-          'Поселок 1',
-          'Поселок 2',
-          'Деревня 1',
-          'Деревня 2',
-          'Село 1',
-          'Село 2',
-          'Хутор 1',
-        ];
-      }
-    });
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   /// Выбрать фото профиля
@@ -190,72 +99,212 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  /// Определить местоположение по GPS
+  Future<void> _detectLocation() async {
+    setState(() {
+      _isDetectingLocation = true;
+      _userLocation = null;
+    });
+
+    try {
+      final location = await _locationService.getUserLocation();
+      
+      if (mounted) {
+        setState(() {
+          _userLocation = location;
+          _isDetectingLocation = false;
+        });
+
+        if (!location.isValid) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Не удалось полностью определить местоположение. Попробуйте еще раз.'),
+              action: SnackBarAction(
+                label: 'Повторить',
+                onPressed: _detectLocation,
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Местоположение успешно определено!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDetectingLocation = false;
+        });
+        
+        // Извлекаем понятное сообщение об ошибке
+        String errorMessage = e.toString();
+        if (errorMessage.contains('Exception:')) {
+          errorMessage = errorMessage.split('Exception:').last.trim();
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            action: SnackBarAction(
+              label: 'Повторить',
+              onPressed: _detectLocation,
+            ),
+            duration: const Duration(seconds: 8),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
+  /// Валидация имени
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Введите имя';
+    }
+    if (value.trim().length < 2) {
+      return 'Имя должно содержать минимум 2 символа';
+    }
+    return null;
+  }
+
   /// Валидация номера телефона
   String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.isEmpty || value.trim().isEmpty) {
       return 'Введите номер телефона';
     }
-    // Простая валидация: только цифры, минимум 10 символов
-    final phoneRegex = RegExp(r'^[0-9]{10,15}$');
+    // Простая валидация: только цифры, минимум 10 цифр (без учета +7)
     final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
-    if (!phoneRegex.hasMatch(cleanPhone)) {
+    if (cleanPhone.length < 10) {
       return 'Введите корректный номер телефона';
     }
     return null;
   }
 
-  /// Обработка регистрации
-  void _handleRegistration() {
-    if (_formKey.currentState!.validate()) {
-      if (_profileImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Выберите фото профиля')),
-        );
-        return;
-      }
-
-      if (_selectedFederalDistrict == null || _selectedRegion == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Выберите место проживания (округ, регион)'),
-          ),
-        );
-        return;
-      }
-
-      // Проверяем: либо выбран район, либо выбран город
-      if (_selectedDistrict == null && _selectedCity == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Выберите район или город'),
-          ),
-        );
-        return;
-      }
-
-      // TODO: Реализовать сохранение данных регистрации
-      final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Регистрация успешна! ID: $phone'),
-        ),
-      );
-
-      // Вызвать callback для завершения регистрации
-      if (widget.onRegistrationComplete != null) {
-        widget.onRegistrationComplete!();
-      } else {
-        // Если callback не передан, просто закрываем экран
-        Navigator.pop(context);
-      }
+  /// Сохранить фото профиля в постоянное хранилище
+  Future<String> _saveProfileImage(File imageFile) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final profileDir = Directory('${appDir.path}/profile');
+    if (!await profileDir.exists()) {
+      await profileDir.create(recursive: true);
     }
+    
+    final fileName = 'profile_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final savedImage = File('${profileDir.path}/$fileName');
+    await imageFile.copy(savedImage.path);
+    
+    return savedImage.path;
   }
 
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    super.dispose();
+  /// Обработка регистрации
+  Future<void> _handleRegistration() async {
+    if (_formKey.currentState!.validate()) {
+      if (_userLocation == null || !_userLocation!.isValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Определите местоположение'),
+          ),
+        );
+        return;
+      }
+
+      // Показываем индикатор загрузки
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      try {
+        final name = _nameController.text.trim();
+        final location = _userLocation!.formattedLocation;
+        
+        // Сохраняем фото в постоянное хранилище (если выбрано)
+        String? savedImagePath;
+        if (_profileImage != null) {
+          savedImagePath = await _saveProfileImage(_profileImage!);
+        }
+        
+        // Отладочный вывод
+        debugPrint('Сохранение данных профиля:');
+        debugPrint('  Имя: $name');
+        debugPrint('  Путь к фото: $savedImagePath');
+        debugPrint('  Местоположение: $location');
+        
+        // Сохраняем данные профиля
+        String phone = _phoneController.text.trim();
+        // Добавляем +7 к номеру (так как +7 показывается через prefixText)
+        if (phone.isNotEmpty) {
+          final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+          phone = '+7$cleanPhone';
+        } else {
+          phone = '+7';
+        }
+        await _storageService.saveProfile(
+          name: name,
+          imagePath: savedImagePath ?? '',
+          location: location,
+          phone: phone.isNotEmpty && phone != '+7' ? phone : null,
+        );
+        
+        debugPrint('Данные профиля успешно сохранены');
+        
+        // Проверяем, что данные действительно сохранились
+        final savedName = await _storageService.getProfileName();
+        final savedImage = await _storageService.getProfileImagePath();
+        final savedLocation = await _storageService.getProfileLocation();
+        
+        debugPrint('Проверка после сохранения:');
+        debugPrint('  Сохраненное имя: $savedName');
+        debugPrint('  Сохраненный путь: $savedImage');
+        debugPrint('  Сохраненное местоположение: $savedLocation');
+        
+        // Проверяем только обязательные поля (имя и местоположение)
+        // Фото необязательно, поэтому savedImage может быть null
+        if (savedName == null || savedLocation == null) {
+          throw Exception('Данные не были сохранены корректно');
+        }
+
+        if (mounted) {
+          Navigator.pop(context); // Закрываем индикатор загрузки
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Регистрация успешна!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // Небольшая задержка перед переходом, чтобы убедиться, что все сохранено
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          // Вызвать callback для завершения регистрации
+          if (widget.onRegistrationComplete != null) {
+            widget.onRegistrationComplete!();
+          } else {
+            Navigator.pop(context);
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Закрываем индикатор загрузки
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ошибка сохранения данных: $e'),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -304,207 +353,146 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             const SizedBox(height: 24),
 
+            // Имя
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Имя',
+                hintText: 'Введите ваше имя',
+                prefixIcon: const Icon(Icons.person_outline),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: _validateName,
+            ),
+            const SizedBox(height: 16),
+
             // Номер телефона
             TextFormField(
               controller: _phoneController,
               decoration: InputDecoration(
                 labelText: 'Номер телефона',
-                hintText: '+7 (999) 123-45-67',
+                hintText: '(999) 123-45-67',
+                prefixText: '+7 ',
+                prefixStyle: const TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
                 prefixIcon: const Icon(Icons.phone),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\(\)\-]')),
+                LengthLimitingTextInputFormatter(20),
+              ],
               validator: _validatePhone,
+            ),
+            const SizedBox(height: 16),
+
+            // Кнопка определения местоположения
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isDetectingLocation ? null : _detectLocation,
+                icon: _isDetectingLocation
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.location_on),
+                label: Text(_isDetectingLocation ? 'Определение...' : 'Определить местоположение'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.secondary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
 
-            // Заголовок "Место проживания"
-            Text(
-              'Место проживания',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF0039A6),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Федеральный округ
-            DropdownButtonFormField<String>(
-              value: _selectedFederalDistrict,
-              decoration: InputDecoration(
-                labelText: 'Федеральный округ',
-                prefixIcon: const Icon(Icons.map),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            // Отображение местоположения
+            if (_userLocation != null) ...[
+              Card(
+                color: Colors.grey[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: _userLocation!.isValid
+                                ? Colors.green
+                                : Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Местоположение',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (_userLocation!.federalDistrict != null)
+                        _buildLocationRow('Округ', _userLocation!.federalDistrict!),
+                      if (_userLocation!.region != null)
+                        _buildLocationRow('Регион', _userLocation!.region!),
+                      if (_userLocation!.district != null)
+                        _buildLocationRow('Район', _userLocation!.district!),
+                      if (_userLocation!.city != null && _userLocation!.district == null)
+                        _buildLocationRow('Город', _userLocation!.city!),
+                      if (_userLocation!.settlement != null)
+                        _buildLocationRow('Населенный пункт', _userLocation!.settlement!),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _userLocation!.formattedLocation,
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              items: _federalDistricts.map((district) {
-                return DropdownMenuItem(
-                  value: district,
-                  child: Text(district),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedFederalDistrict = value;
-                });
-                _loadRegions(value);
-              },
-              validator: (value) {
-                if (value == null) return 'Выберите федеральный округ';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Регион
-            DropdownButtonFormField<String>(
-              value: _selectedRegion,
-              decoration: InputDecoration(
-                labelText: 'Регион',
-                prefixIcon: const Icon(Icons.location_city),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _regions.map((region) {
-                return DropdownMenuItem(
-                  value: region['id'],
-                  child: Text(region['name'] ?? ''),
-                );
-              }).toList(),
-              onChanged: _selectedFederalDistrict == null
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _selectedRegion = value;
-                      });
-                      _loadDistricts(value); // Загружаем районы региона
-                      _loadCities(value); // Загружаем города для справки (неактивны)
-                    },
-              validator: (value) {
-                if (value == null) return 'Выберите регион';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Район (районы области/края)
-            DropdownButtonFormField<String>(
-              value: _selectedDistrict,
-              decoration: InputDecoration(
-                labelText: 'Район',
-                prefixIcon: const Icon(Icons.place),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _districts.map((district) {
-                return DropdownMenuItem(
-                  value: district,
-                  child: Text(district),
-                );
-              }).toList(),
-              onChanged: _selectedRegion == null
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _selectedDistrict = value;
-                        // Если выбран район, сбрасываем выбор города
-                        if (value != null) {
-                          _selectedCity = null;
-                        }
-                      });
-                      _loadSettlements(value);
-                    },
-              validator: (value) {
-                if (value == null) return 'Выберите район';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Поселок/Деревня
-            DropdownButtonFormField<String>(
-              value: _selectedSettlement,
-              decoration: InputDecoration(
-                labelText: 'Поселок/Деревня',
-                prefixIcon: const Icon(Icons.location_on),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _settlements.map((settlement) {
-                return DropdownMenuItem(
-                  value: settlement,
-                  child: Text(settlement),
-                );
-              }).toList(),
-              onChanged: _selectedDistrict == null
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _selectedSettlement = value;
-                      });
-                    },
-            ),
-            const SizedBox(height: 16),
-
-            // Поселок/Деревня
-            DropdownButtonFormField<String>(
-              value: _selectedSettlement,
-              decoration: InputDecoration(
-                labelText: 'Поселок/Деревня',
-                prefixIcon: const Icon(Icons.location_on),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _settlements.map((settlement) {
-                return DropdownMenuItem(
-                  value: settlement,
-                  child: Text(settlement),
-                );
-              }).toList(),
-              onChanged: _selectedDistrict == null
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _selectedSettlement = value;
-                      });
-                    },
-            ),
-            const SizedBox(height: 16),
-
-            // Город (активен только если район не выбран)
-            DropdownButtonFormField<String>(
-              value: _selectedCity,
-              decoration: InputDecoration(
-                labelText: _selectedDistrict == null ? 'Город' : 'Город (неактивен)',
-                prefixIcon: const Icon(Icons.home),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: _selectedDistrict != null,
-                fillColor: _selectedDistrict != null ? Colors.grey[200] : null,
-              ),
-              items: _cities.map((city) {
-                return DropdownMenuItem(
-                  value: city['name'] as String,
-                  child: Text(city['name'] as String),
-                );
-              }).toList(),
-              onChanged: _selectedDistrict == null && _selectedRegion != null
-                  ? (value) {
-                      setState(() {
-                        _selectedCity = value;
-                      });
-                    }
-                  : null, // Неактивен если выбран район
-            ),
-            const SizedBox(height: 32),
+              const SizedBox(height: 24),
+            ],
 
             // Кнопка регистрации
             SizedBox(
@@ -520,7 +508,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Зарегистрироваться',
+                  'Подтвердить',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -530,5 +518,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-}
 
+  /// Виджет для отображения строки местоположения
+  Widget _buildLocationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

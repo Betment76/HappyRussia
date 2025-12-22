@@ -1,9 +1,24 @@
+import '../data/russian_regions.dart';
+
 /// Утилита для работы с гербами регионов
 class HerbHelper {
   /// Получить путь к гербу региона по его ID
   /// Поддерживаемые форматы: PNG (рекомендуется), SVG, JPG, GIF
   static String getHerbPath(String regionId) {
     return 'assets/herbs/$regionId.png';
+  }
+
+  /// Получить путь к гербу федерального округа
+  /// Использует герб первого региона округа
+  static String? getFederalDistrictHerbPath(String districtName) {
+    final regions = RussianRegions.getByFederalDistrict(districtName);
+    if (regions.isNotEmpty) {
+      final firstRegionId = regions.first['id'];
+      if (firstRegionId != null) {
+        return getHerbPath(firstRegionId);
+      }
+    }
+    return null;
   }
 
   /// Получить путь к гербу региона по его ID (с альтернативными форматами)
