@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -170,9 +169,9 @@ class _CheckInScreenState extends State<CheckInScreen>
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Row(
-              children: const [
+              children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
                 Text('Чек-ин успешно отправлен!'),
@@ -306,7 +305,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withOpacity(0.15)
+              ? color.withValues(alpha: 0.15)
               : Colors.transparent,
           border: Border.all(
             color: isSelected ? color : Colors.grey[300]!,
@@ -372,7 +371,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     String? district;
     String? cityName;
 
-    if (parts.length >= 1) {
+    if (parts.isNotEmpty) {
       federalDistrict = parts[0].trim();
     }
     
@@ -468,9 +467,9 @@ class _CheckInScreenState extends State<CheckInScreen>
     final cityName = _extractCityFromLocation(_registrationLocation!);
     final cityPopulation = _getCityPopulation(cityName, _selectedRegionId);
     // Используем нейтральное настроение для карточки (можно будет заменить на реальное)
-    final averageMood = 3.0;
+    const averageMood = 3.0;
     final moodColor = _getColorByMood(averageMood);
-    final moodLevel = MoodLevel.neutral; // Можно заменить на реальное значение
+    const moodLevel = MoodLevel.neutral; // Можно заменить на реальное значение
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -492,7 +491,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: moodColor.withOpacity(0.1),
+                    color: moodColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -524,7 +523,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                   width: 45,
                   height: 45,
                   decoration: BoxDecoration(
-                    color: moodColor.withOpacity(0.2),
+                    color: moodColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(

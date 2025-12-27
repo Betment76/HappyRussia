@@ -14,7 +14,7 @@ class MoodProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   
   // Флаг для использования моков (true = моки, false = реальный API)
-  static const bool useMocks = true; // TODO: Переключить на false когда бекенд готов
+  static const bool useMocks = false; // Бекенд готов, используем реальный API
 
   List<RegionMood> _regions = [];
   bool _isLoading = false;
@@ -210,8 +210,7 @@ class MoodProvider with ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
         districts = MockService.generateMockFederalDistrictsRanking(period: periodToUse);
       } else {
-        // TODO: Добавить метод в ApiService
-        districts = MockService.generateMockFederalDistrictsRanking(period: periodToUse);
+        districts = await _apiService.getFederalDistrictsRanking(period: periodToUse);
       }
       
       _federalDistricts = districts;
@@ -239,8 +238,7 @@ class MoodProvider with ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
         cities = await MockService.generateMockAllCitiesRanking(period: periodToUse);
       } else {
-        // TODO: Добавить метод в ApiService
-        cities = await MockService.generateMockAllCitiesRanking(period: periodToUse);
+        cities = await _apiService.getAllCitiesRanking(period: periodToUse);
       }
       
       _allCities = cities;
