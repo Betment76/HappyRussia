@@ -2,143 +2,133 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/city_mood.dart';
 import '../models/region_mood.dart';
+import '../models/region_data.dart';
+import '../models/settlement.dart';
 import '../providers/mood_provider.dart';
-import 'districts_screen.dart';
+import '../widgets/data_cards.dart';
+import '../widgets/mood_cards.dart';
+import 'city_detail_screen.dart';
 
 /// Экран с рейтингом городов региона
 class CitiesScreen extends StatefulWidget {
-  final RegionMood region;
+  final RegionMood? region;
+  final String? regionId;
 
   const CitiesScreen({
     super.key,
-    required this.region,
-  });
+    this.region,
+    this.regionId,
+  }) : assert(region != null || regionId != null, 'Необходимо указать region или regionId');
 
   @override
   State<CitiesScreen> createState() => _CitiesScreenState();
 }
 
 class _CitiesScreenState extends State<CitiesScreen> {
+  RegionData? _regionData;
+  List<Settlement> _cities = [];
+  List<Settlement> _ruralSettlements = []; // сёла, деревни и т.д.
+  bool _isLoadingData = true;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MoodProvider>().loadCitiesRanking(widget.region.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<MoodProvider>();
+      final regionId = widget.region?.id ?? widget.regionId;
+      
+      if (regionId != null) {
+        // Загружаем актуальные данные о регионе
+        await provider.loadSettlementsData();
+        _regionData = await provider.getRegionData(regionId);
+        if (_regionData != null) {
+          // Города региона
+          _cities = await provider.getRegionCitiesData(regionId);
+          // Все НП региона и отдельно сельские (не «город»)
+          final allSettlements = _regionData!.getAllSettlements();
+          _ruralSettlements = allSettlements
+              .where((s) => s.type.toLowerCase() != 'город')
+              .toList();
+        }
+        
+        // Загружаем данные о настроении, если есть region
+        if (widget.region != null) {
+          await provider.loadCitiesRanking(regionId);
+        }
+        
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final regionId = widget.region?.id ?? widget.regionId;
+    final regionName = widget.region?.name ?? _regionData?.name ?? '';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Города ${widget.region.name}'),
+        title: Text('Города $regionName'),
         elevation: 0,
       ),
       body: Consumer<MoodProvider>(
         builder: (context, provider, child) {
-          if (provider.isLoadingCities && provider.cities.isEmpty) {
+          // Показываем актуальные данные из базы
+          if (_isLoadingData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (provider.errorCities != null && provider.cities.isEmpty) {
+          if (_regionData == null || _cities.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Ошибка: ${provider.errorCities}'),
+                  Icon(
+                    Icons.location_city_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => provider.loadCitiesRanking(widget.region.id),
-                    child: const Text('Повторить'),
+                  Text(
+                    'Нет данных о городах',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
             );
           }
 
-          // Фильтруем города: показываем только те, где есть хотя бы один чек-ин
-          final filteredCities = provider.cities
-              .where((city) => city.totalCheckIns > 0)
-              .toList();
-
-          if (filteredCities.isEmpty) {
-            return Column(
-              children: [
-                // Заголовок с информацией о регионе
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white,
-                        const Color(0xFF0039A6),
-                        const Color(0xFFD52B1E),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Рейтинг городов',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Средний балл региона: ${widget.region.averageMood.toStringAsFixed(2)}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.sentiment_neutral,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Нет городов с зарегистрированными пользователями',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          // Если есть данные о настроении, фильтруем их по региону
+          final citiesWithMood = <CityMood>[];
+          if (widget.region != null && provider.cities.isNotEmpty && regionId != null) {
+            // Фильтруем города по regionId - показываем только города этого региона
+            citiesWithMood.addAll(
+              provider.cities.where((city) => city.regionId == regionId),
             );
           }
+
+          // Фильтруем города с настроением: показываем только те, где есть хотя бы один чек-ин
+          final filteredCitiesWithMood = citiesWithMood
+              .where((city) => city.totalCheckIns > 0)
+              .toList();
 
           return Column(
             children: [
               // Заголовок с информацией о регионе
               Container(
-                width: double.infinity, // На всю ширину
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.white, // Белый
-                      const Color(0xFF0039A6), // Синий
-                      const Color(0xFFD52B1E), // Красный
+                      Colors.white,
+                      const Color(0xFF0039A6),
+                      const Color(0xFFD52B1E),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -148,19 +138,27 @@ class _CitiesScreenState extends State<CitiesScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Рейтинг городов',
+                      filteredCitiesWithMood.isNotEmpty ? 'Рейтинг городов' : 'Города региона',
                       style: theme.textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Средний балл региона: ${widget.region.averageMood.toStringAsFixed(2)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                    if (widget.region != null)
+                      Text(
+                        'Средний балл региона: ${widget.region!.averageMood.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      )
+                    else
+                      Text(
+                        '${_cities.length} городов • Население: ${_regionData!.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -168,14 +166,82 @@ class _CitiesScreenState extends State<CitiesScreen> {
               // Список городов
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => provider.loadCitiesRanking(widget.region.id),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: filteredCities.length,
-                    itemBuilder: (context, index) {
-                      return _buildCityCard(filteredCities[index], index + 1, theme);
-                    },
-                  ),
+                  onRefresh: () async {
+                    if (regionId != null) {
+                      await provider.loadSettlementsData();
+                      _regionData = await provider.getRegionData(regionId);
+                      if (_regionData != null) {
+                        // Перезагружаем города
+                        _cities = await provider.getRegionCitiesData(regionId);
+                        // Пересчитываем сельские НП
+                        final allSettlements = _regionData!.getAllSettlements();
+                        _ruralSettlements = allSettlements
+                            .where((s) => s.type.toLowerCase() != 'город')
+                            .toList();
+                      }
+                      if (widget.region != null) {
+                        await provider.loadCitiesRanking(regionId);
+                      }
+                      setState(() {});
+                    }
+                  },
+                  child: filteredCitiesWithMood.isNotEmpty
+                      ? ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          // города с настроением + (опциональный заголовок) + сельские НП
+                          itemCount: filteredCitiesWithMood.length +
+                              (_ruralSettlements.isNotEmpty ? 1 : 0) +
+                              _ruralSettlements.length,
+                          itemBuilder: (context, index) {
+                            // Сначала карточки городов со смайликами
+                            if (index < filteredCitiesWithMood.length) {
+                              return _buildCityCardWithMood(
+                                filteredCitiesWithMood[index],
+                                index + 1,
+                                theme,
+                              );
+                            }
+
+                            // Дальше – заголовок «Населённые пункты»
+                            final afterCitiesIndex =
+                                index - filteredCitiesWithMood.length;
+                            if (_ruralSettlements.isNotEmpty &&
+                                afterCitiesIndex == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    24, 16, 16, 4),
+                                child: Text(
+                                  'Населённые пункты (сёла, деревни и др.)',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0039A6),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            // Карточки сёл / деревень и т.д. (SettlementCard)
+                            final ruralIndex =
+                                afterCitiesIndex - (_ruralSettlements.isNotEmpty ? 1 : 0);
+                            final settlement = _ruralSettlements[ruralIndex];
+                            return SettlementCard(
+                              settlement: settlement,
+                              regionName: regionName,
+                              isClickable: false,
+                            );
+                          },
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _cities.length,
+                          itemBuilder: (context, index) {
+                            return SettlementCard(
+                              settlement: _cities[index],
+                              regionName: regionName,
+                              isClickable: false,
+                            );
+                          },
+                        ),
                 ),
               ),
             ],
@@ -185,23 +251,22 @@ class _CitiesScreenState extends State<CitiesScreen> {
     );
   }
 
-  Widget _buildCityCard(CityMood city, int rank, ThemeData theme) {
+  Widget _buildCityCardWithMood(CityMood city, int rank, ThemeData theme) {
     final moodColor = _getColorByMood(city.averageMood);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       elevation: 4,
-      shadowColor: const Color(0xFF0039A6), // Синий цвет российского флага
+      shadowColor: const Color(0xFF0039A6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () {
-          Navigator.push(
+          Navigator.pushNamed(
             context,
-            MaterialPageRoute(
-              builder: (_) => DistrictsScreen(city: city),
-            ),
+            '/city/${city.id}',
+            arguments: city,
           );
         },
         borderRadius: BorderRadius.circular(12),
@@ -250,8 +315,8 @@ class _CitiesScreenState extends State<CitiesScreen> {
                     width: 45,
                     height: 45,
                     decoration: BoxDecoration(
-                      color: moodColor.withOpacity(0.2), // Цвет настроения
-                      borderRadius: BorderRadius.circular(8), // Закругленные углы
+                      color: moodColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
                       child: Text(
@@ -259,7 +324,7 @@ class _CitiesScreenState extends State<CitiesScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0039A6), // Синий цвет российского флага
+                          color: Color(0xFF0039A6),
                         ),
                       ),
                     ),
@@ -276,7 +341,7 @@ class _CitiesScreenState extends State<CitiesScreen> {
                             city.name,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0039A6), // Синий цвет российского флага
+                              color: const Color(0xFF0039A6),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -318,7 +383,6 @@ class _CitiesScreenState extends State<CitiesScreen> {
                         Row(
                           children: [
                             const SizedBox(width: 8),
-                            // Иконка человечка и количество проголосовавших
                             Icon(
                               Icons.person_outline,
                               size: 16,
@@ -331,10 +395,9 @@ class _CitiesScreenState extends State<CitiesScreen> {
                                 color: Colors.grey[600],
                               ),
                             ),
-                            const Spacer(), // Растягиваем пространство
-                            // Процент над правым краем прогресс-бара
+                            const Spacer(),
                             Padding(
-                              padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
+                              padding: const EdgeInsets.only(right: 60),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -356,9 +419,8 @@ class _CitiesScreenState extends State<CitiesScreen> {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        // Прогресс-бар (растягивается до смайлика)
                         Padding(
-                          padding: const EdgeInsets.only(right: 60), // Отступ для смайлика
+                          padding: const EdgeInsets.only(right: 60),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
@@ -391,4 +453,3 @@ class _CitiesScreenState extends State<CitiesScreen> {
     return Colors.red[600]!;
   }
 }
-

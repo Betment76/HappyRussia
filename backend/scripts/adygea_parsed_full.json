@@ -1,0 +1,1138 @@
+{
+  "Майкопский городской округ": [
+    {
+      "name": "17 лет Октября",
+      "type": "хутор",
+      "population": 174
+    },
+    {
+      "name": "Абадзехская",
+      "type": "станица",
+      "population": 3623
+    },
+    {
+      "name": "Безводная",
+      "type": "станица",
+      "population": 52
+    },
+    {
+      "name": "Весёлый",
+      "type": "хутор",
+      "population": 308
+    },
+    {
+      "name": "Весёлый",
+      "type": "хутор",
+      "population": 15
+    },
+    {
+      "name": "Вольный",
+      "type": "хутор",
+      "population": 255
+    },
+    {
+      "name": "Гражданский",
+      "type": "хутор",
+      "population": 345
+    },
+    {
+      "name": "Грозный",
+      "type": "хутор",
+      "population": 414
+    },
+    {
+      "name": "Грозный",
+      "type": "хутор",
+      "population": 640
+    },
+    {
+      "name": "Гузерипль",
+      "type": "посёлок",
+      "population": 106
+    },
+    {
+      "name": "Дагестанская",
+      "type": "станица",
+      "population": 530
+    },
+    {
+      "name": "Даховская",
+      "type": "станица",
+      "population": 1427
+    },
+    {
+      "name": "Дьяков",
+      "type": "хутор",
+      "population": 135
+    },
+    {
+      "name": "Калинин",
+      "type": "хутор",
+      "population": 236
+    },
+    {
+      "name": "Каменномостский",
+      "type": "посёлок",
+      "population": 7213
+    },
+    {
+      "name": "Кармир-Астх",
+      "type": "хутор",
+      "population": 23
+    },
+    {
+      "name": "Коминтерн",
+      "type": "хутор",
+      "population": 271
+    },
+    {
+      "name": "Красная Улька",
+      "type": "хутор",
+      "population": 379
+    },
+    {
+      "name": "Краснооктябрьский",
+      "type": "посёлок",
+      "population": 5875
+    },
+    {
+      "name": "Красный Мост",
+      "type": "хутор",
+      "population": 42
+    },
+    {
+      "name": "Кужорская",
+      "type": "станица",
+      "population": 3531
+    },
+    {
+      "name": "Курджипская",
+      "type": "станица",
+      "population": 1576
+    },
+    {
+      "name": "Мафэхабль",
+      "type": "аул",
+      "population": 96
+    },
+    {
+      "name": "Махошеполяна",
+      "type": "село",
+      "population": 14
+    },
+    {
+      "name": "Меркулаевка",
+      "type": "посёлок",
+      "population": 57
+    },
+    {
+      "name": "Мирный",
+      "type": "посёлок",
+      "population": 24
+    },
+    {
+      "name": "Мичурина",
+      "type": "посёлок",
+      "population": 70
+    },
+    {
+      "name": "Никель",
+      "type": "посёлок",
+      "population": 0
+    },
+    {
+      "name": "Новопрохладное",
+      "type": "село",
+      "population": 183
+    },
+    {
+      "name": "Новосвободная",
+      "type": "станица",
+      "population": 633
+    },
+    {
+      "name": "Октябрьский",
+      "type": "хутор",
+      "population": 53
+    },
+    {
+      "name": "Первомайский",
+      "type": "посёлок",
+      "population": 1281
+    },
+    {
+      "name": "Победа",
+      "type": "хутор",
+      "population": 167
+    },
+    {
+      "name": "Победа",
+      "type": "посёлок",
+      "population": 913
+    },
+    {
+      "name": "Подгорный",
+      "type": "посёлок",
+      "population": 121
+    },
+    {
+      "name": "Приречный",
+      "type": "посёлок",
+      "population": 321
+    },
+    {
+      "name": "Причтовский",
+      "type": "хутор",
+      "population": 384
+    },
+    {
+      "name": "Пролетарский",
+      "type": "хутор",
+      "population": 1031
+    },
+    {
+      "name": "Садовый",
+      "type": "посёлок",
+      "population": 155
+    },
+    {
+      "name": "Садовый",
+      "type": "хутор",
+      "population": 399
+    },
+    {
+      "name": "Севастопольская",
+      "type": "станица",
+      "population": 644
+    },
+    {
+      "name": "Северо-Восточные Сады",
+      "type": "хутор",
+      "population": 3393
+    },
+    {
+      "name": "Советский",
+      "type": "хутор",
+      "population": 472
+    },
+    {
+      "name": "Совхозный",
+      "type": "посёлок",
+      "population": 1346
+    },
+    {
+      "name": "Спокойный",
+      "type": "посёлок",
+      "population": 38
+    },
+    {
+      "name": "Табачный",
+      "type": "посёлок",
+      "population": 1760
+    },
+    {
+      "name": "Тимирязева",
+      "type": "посёлок",
+      "population": 1142
+    },
+    {
+      "name": "Ткачёв",
+      "type": "хутор",
+      "population": 214
+    },
+    {
+      "name": "Трёхречный",
+      "type": "посёлок",
+      "population": 570
+    },
+    {
+      "name": "Тульский",
+      "type": "посёлок",
+      "population": 10732
+    },
+    {
+      "name": "Удобный",
+      "type": "посёлок",
+      "population": 1326
+    },
+    {
+      "name": "Усть-Сахрай",
+      "type": "посёлок",
+      "population": 298
+    },
+    {
+      "name": "Хакодзь",
+      "type": "посёлок",
+      "population": 0
+    },
+    {
+      "name": "Хамышки",
+      "type": "село",
+      "population": 792
+    },
+    {
+      "name": "Цветочный",
+      "type": "посёлок",
+      "population": 1402
+    },
+    {
+      "name": "Шаумян",
+      "type": "хутор",
+      "population": 388
+    },
+    {
+      "name": "Шунтук",
+      "type": "хутор",
+      "population": 850
+    }
+  ],
+  "Адыгейский городской округ": [
+    {
+      "name": "Адыгейск",
+      "type": "город",
+      "population": 13175
+    },
+    {
+      "name": "Гатлукай",
+      "type": "аул",
+      "population": 1513
+    },
+    {
+      "name": "Псекупс",
+      "type": "хутор",
+      "population": 909
+    }
+  ],
+  "Гиагинский район": [
+    {
+      "name": "Владимировское",
+      "type": "село",
+      "population": 78
+    },
+    {
+      "name": "Вольно-Весёлый",
+      "type": "хутор",
+      "population": 84
+    },
+    {
+      "name": "Георгиевское",
+      "type": "село",
+      "population": 215
+    },
+    {
+      "name": "Гиагинская",
+      "type": "станица",
+      "population": 14121
+    },
+    {
+      "name": "Гончарка",
+      "type": "посёлок",
+      "population": 1537
+    },
+    {
+      "name": "Днепровский",
+      "type": "хутор",
+      "population": 174
+    },
+    {
+      "name": "Дондуковская",
+      "type": "станица",
+      "population": 6603
+    },
+    {
+      "name": "Екатериновский",
+      "type": "хутор",
+      "population": 157
+    },
+    {
+      "name": "Карцев",
+      "type": "хутор",
+      "population": 70
+    },
+    {
+      "name": "Келермесская",
+      "type": "станица",
+      "population": 2749
+    },
+    {
+      "name": "Козополянский",
+      "type": "хутор",
+      "population": 77
+    },
+    {
+      "name": "Колхозный",
+      "type": "хутор",
+      "population": 76
+    },
+    {
+      "name": "Красный Пахарь",
+      "type": "хутор",
+      "population": 26
+    },
+    {
+      "name": "Красный Хлебороб",
+      "type": "хутор",
+      "population": 53
+    },
+    {
+      "name": "Курский",
+      "type": "хутор",
+      "population": 119
+    },
+    {
+      "name": "Лесной",
+      "type": "посёлок",
+      "population": 184
+    },
+    {
+      "name": "Михельсоновский",
+      "type": "хутор",
+      "population": 23
+    },
+    {
+      "name": "Нечаевский",
+      "type": "хутор",
+      "population": 27
+    },
+    {
+      "name": "Нижний Айрюм",
+      "type": "село",
+      "population": 283
+    },
+    {
+      "name": "Новый",
+      "type": "посёлок",
+      "population": 1356
+    },
+    {
+      "name": "Образцовое",
+      "type": "село",
+      "population": 342
+    },
+    {
+      "name": "Первомайский",
+      "type": "хутор",
+      "population": 0
+    },
+    {
+      "name": "Прогресс",
+      "type": "хутор",
+      "population": 963
+    },
+    {
+      "name": "Садовый",
+      "type": "хутор",
+      "population": 195
+    },
+    {
+      "name": "Сергиевское",
+      "type": "село",
+      "population": 1369
+    },
+    {
+      "name": "Смольчев-Малиновский",
+      "type": "хутор",
+      "population": 104
+    },
+    {
+      "name": "Тамбовский",
+      "type": "хутор",
+      "population": 632
+    },
+    {
+      "name": "Фарсовский",
+      "type": "хутор",
+      "population": 13
+    },
+    {
+      "name": "Черёмушкин",
+      "type": "хутор",
+      "population": 94
+    },
+    {
+      "name": "Шишкинский",
+      "type": "хутор",
+      "population": 42
+    }
+  ],
+  "Кошехабльский район": [
+    {
+      "name": "Блечепсин",
+      "type": "аул",
+      "population": 3148
+    },
+    {
+      "name": "Вольное",
+      "type": "село",
+      "population": 3679
+    },
+    {
+      "name": "Дмитриевский",
+      "type": "хутор",
+      "population": 509
+    },
+    {
+      "name": "Дружба",
+      "type": "посёлок",
+      "population": 782
+    },
+    {
+      "name": "Егерухай",
+      "type": "аул",
+      "population": 1617
+    },
+    {
+      "name": "Игнатьевский",
+      "type": "хутор",
+      "population": 997
+    },
+    {
+      "name": "Казённо-Кужорский",
+      "type": "хутор",
+      "population": 808
+    },
+    {
+      "name": "Кармолино-Гидроицкий",
+      "type": "хутор",
+      "population": 193
+    },
+    {
+      "name": "Комсомольский",
+      "type": "посёлок",
+      "population": 169
+    },
+    {
+      "name": "Кошехабль",
+      "type": "аул",
+      "population": 7239
+    },
+    {
+      "name": "Красный",
+      "type": "хутор",
+      "population": 209
+    },
+    {
+      "name": "Красный Фарс",
+      "type": "хутор",
+      "population": 176
+    },
+    {
+      "name": "Майский",
+      "type": "посёлок",
+      "population": 2500
+    },
+    {
+      "name": "Натырбово",
+      "type": "село",
+      "population": 3027
+    },
+    {
+      "name": "Новоалексеевский",
+      "type": "хутор",
+      "population": 390
+    },
+    {
+      "name": "Отрадный",
+      "type": "хутор",
+      "population": 183
+    },
+    {
+      "name": "Плодопитомник",
+      "type": "посёлок",
+      "population": 94
+    },
+    {
+      "name": "Политотдел",
+      "type": "хутор",
+      "population": 245
+    },
+    {
+      "name": "Соколов",
+      "type": "хутор",
+      "population": 0
+    },
+    {
+      "name": "Хачемзий",
+      "type": "аул",
+      "population": 716
+    },
+    {
+      "name": "Ходзь",
+      "type": "аул",
+      "population": 2952
+    },
+    {
+      "name": "Чехрак",
+      "type": "посёлок",
+      "population": 504
+    },
+    {
+      "name": "Чехрак",
+      "type": "хутор",
+      "population": 17
+    },
+    {
+      "name": "Шелковников",
+      "type": "хутор",
+      "population": 268
+    }
+  ],
+  "Красногвардейский район": [
+    {
+      "name": "Адамий",
+      "type": "аул",
+      "population": 1354
+    },
+    {
+      "name": "Белое",
+      "type": "село",
+      "population": 2926
+    },
+    {
+      "name": "Бжедугхабль",
+      "type": "аул",
+      "population": 902
+    },
+    {
+      "name": "Богурсуков",
+      "type": "хутор",
+      "population": 151
+    },
+    {
+      "name": "Большесидоровское",
+      "type": "село",
+      "population": 1499
+    },
+    {
+      "name": "Верхненазаровское",
+      "type": "село",
+      "population": 552
+    },
+    {
+      "name": "Водный",
+      "type": "посёлок",
+      "population": 0
+    },
+    {
+      "name": "Джамбечий",
+      "type": "аул",
+      "population": 623
+    },
+    {
+      "name": "Догужиев",
+      "type": "хутор",
+      "population": 18
+    },
+    {
+      "name": "Еленовское",
+      "type": "село",
+      "population": 2605
+    },
+    {
+      "name": "Красногвардейское",
+      "type": "село",
+      "population": 9459
+    },
+    {
+      "name": "Лесной",
+      "type": "посёлок",
+      "population": 0
+    },
+    {
+      "name": "Мирный",
+      "type": "посёлок",
+      "population": 13
+    },
+    {
+      "name": "Набережный",
+      "type": "посёлок",
+      "population": 98
+    },
+    {
+      "name": "Новосевастопольское",
+      "type": "село",
+      "population": 696
+    },
+    {
+      "name": "Папенков",
+      "type": "хутор",
+      "population": 27
+    },
+    {
+      "name": "Преображенское",
+      "type": "село",
+      "population": 1386
+    },
+    {
+      "name": "Пустосёлов",
+      "type": "хутор",
+      "population": 10
+    },
+    {
+      "name": "Садовое",
+      "type": "село",
+      "population": 1315
+    },
+    {
+      "name": "Саратовский",
+      "type": "хутор",
+      "population": 474
+    },
+    {
+      "name": "Свободный",
+      "type": "посёлок",
+      "population": 8
+    },
+    {
+      "name": "Уляп",
+      "type": "аул",
+      "population": 1298
+    },
+    {
+      "name": "Хатукай",
+      "type": "аул",
+      "population": 4911
+    },
+    {
+      "name": "Чумаков",
+      "type": "хутор",
+      "population": 69
+    },
+    {
+      "name": "Штурбино",
+      "type": "село",
+      "population": 474
+    }
+  ],
+  "Тахтамукайский район": [
+    {
+      "name": "Апостолиди",
+      "type": "хутор",
+      "population": 75
+    },
+    {
+      "name": "Афипсип",
+      "type": "аул",
+      "population": 2121
+    },
+    {
+      "name": "Дружный",
+      "type": "посёлок",
+      "population": 412
+    },
+    {
+      "name": "Козет",
+      "type": "аул",
+      "population": 1766
+    },
+    {
+      "name": "Красноармейский",
+      "type": "хутор",
+      "population": 52
+    },
+    {
+      "name": "Кубаньстрой",
+      "type": "посёлок",
+      "population": 395
+    },
+    {
+      "name": "Натухай",
+      "type": "аул",
+      "population": 341
+    },
+    {
+      "name": "Новая Адыгея",
+      "type": "аул",
+      "population": 2051
+    },
+    {
+      "name": "Новобжегокай",
+      "type": "аул",
+      "population": 375
+    },
+    {
+      "name": "Новомогилёвский",
+      "type": "хутор",
+      "population": 28
+    },
+    {
+      "name": "Новый",
+      "type": "посёлок",
+      "population": 1895
+    },
+    {
+      "name": "Новый Сад",
+      "type": "хутор",
+      "population": 1315
+    },
+    {
+      "name": "Отрадный",
+      "type": "посёлок",
+      "population": 677
+    },
+    {
+      "name": "Панахес",
+      "type": "аул",
+      "population": 1522
+    },
+    {
+      "name": "Перекатный",
+      "type": "посёлок",
+      "population": 231
+    },
+    {
+      "name": "Прикубанский",
+      "type": "посёлок",
+      "population": 1051
+    },
+    {
+      "name": "Псейтук",
+      "type": "аул",
+      "population": 617
+    },
+    {
+      "name": "Старобжегокай",
+      "type": "аул",
+      "population": 1993
+    },
+    {
+      "name": "Старомогилёвский",
+      "type": "хутор",
+      "population": 39
+    },
+    {
+      "name": "Суповский",
+      "type": "хутор",
+      "population": 508
+    },
+    {
+      "name": "Супс",
+      "type": "посёлок",
+      "population": 70
+    },
+    {
+      "name": "Тахтамукай",
+      "type": "аул",
+      "population": 5214
+    },
+    {
+      "name": "Хаштук",
+      "type": "аул",
+      "population": 279
+    },
+    {
+      "name": "Хомуты",
+      "type": "хутор",
+      "population": 574
+    },
+    {
+      "name": "Шенджий",
+      "type": "аул",
+      "population": 2000
+    },
+    {
+      "name": "Энем",
+      "type": "пгт",
+      "population": 27717
+    },
+    {
+      "name": "Яблоновский",
+      "type": "пгт",
+      "population": 54291
+    }
+  ],
+  "Теучежский район": [
+    {
+      "name": "Ассоколай",
+      "type": "аул",
+      "population": 1563
+    },
+    {
+      "name": "Вочепший",
+      "type": "аул",
+      "population": 1395
+    },
+    {
+      "name": "Габукай",
+      "type": "аул",
+      "population": 1878
+    },
+    {
+      "name": "Городской",
+      "type": "хутор",
+      "population": 288
+    },
+    {
+      "name": "Джиджихабль",
+      "type": "аул",
+      "population": 749
+    },
+    {
+      "name": "Заря",
+      "type": "посёлок",
+      "population": 0
+    },
+    {
+      "name": "Казазов",
+      "type": "хутор",
+      "population": 272
+    },
+    {
+      "name": "Колос",
+      "type": "хутор",
+      "population": 173
+    },
+    {
+      "name": "Кочкин",
+      "type": "хутор",
+      "population": 0
+    },
+    {
+      "name": "Кочкин",
+      "type": "хутор",
+      "population": 7
+    },
+    {
+      "name": "Красненский",
+      "type": "посёлок",
+      "population": 384
+    },
+    {
+      "name": "Красное",
+      "type": "село",
+      "population": 299
+    },
+    {
+      "name": "Кунчукохабль",
+      "type": "аул",
+      "population": 553
+    },
+    {
+      "name": "Нечерезий",
+      "type": "аул",
+      "population": 351
+    },
+    {
+      "name": "Нешукай",
+      "type": "аул",
+      "population": 934
+    },
+    {
+      "name": "Нововочепший",
+      "type": "хутор",
+      "population": 169
+    },
+    {
+      "name": "Петров",
+      "type": "хутор",
+      "population": 289
+    },
+    {
+      "name": "Понежукай",
+      "type": "аул",
+      "population": 3456
+    },
+    {
+      "name": "Пчегатлукай",
+      "type": "аул",
+      "population": 832
+    },
+    {
+      "name": "Пшикуйхабль",
+      "type": "аул",
+      "population": 281
+    },
+    {
+      "name": "Тауйхабль",
+      "type": "аул",
+      "population": 204
+    },
+    {
+      "name": "Тлюстенхабль",
+      "type": "пгт",
+      "population": 7130
+    },
+    {
+      "name": "Тугургой",
+      "type": "аул",
+      "population": 330
+    },
+    {
+      "name": "Чабанов",
+      "type": "хутор",
+      "population": 36
+    },
+    {
+      "name": "Четук",
+      "type": "посёлок",
+      "population": 162
+    },
+    {
+      "name": "Шевченко",
+      "type": "хутор",
+      "population": 618
+    },
+    {
+      "name": "Шундук",
+      "type": "хутор",
+      "population": 17
+    }
+  ],
+  "Шовгеновский район": [
+    {
+      "name": "Весёлый",
+      "type": "хутор",
+      "population": 283
+    },
+    {
+      "name": "Джерокай",
+      "type": "аул",
+      "population": 1157
+    },
+    {
+      "name": "Дорошенко",
+      "type": "хутор",
+      "population": 156
+    },
+    {
+      "name": "Дукмасов",
+      "type": "хутор",
+      "population": 520
+    },
+    {
+      "name": "Задунаевский",
+      "type": "хутор",
+      "population": 38
+    },
+    {
+      "name": "Зарево",
+      "type": "посёлок",
+      "population": 1027
+    },
+    {
+      "name": "Кабехабль",
+      "type": "аул",
+      "population": 931
+    },
+    {
+      "name": "Касаткин",
+      "type": "хутор",
+      "population": 144
+    },
+    {
+      "name": "Келеметов",
+      "type": "хутор",
+      "population": 33
+    },
+    {
+      "name": "Киров",
+      "type": "хутор",
+      "population": 117
+    },
+    {
+      "name": "Лейбоабазов",
+      "type": "хутор",
+      "population": 100
+    },
+    {
+      "name": "Лесхозный",
+      "type": "посёлок",
+      "population": 7
+    },
+    {
+      "name": "Мамацев",
+      "type": "хутор",
+      "population": 250
+    },
+    {
+      "name": "Мамхег",
+      "type": "аул",
+      "population": 2011
+    },
+    {
+      "name": "Михайлов",
+      "type": "хутор",
+      "population": 92
+    },
+    {
+      "name": "Мокроназаров",
+      "type": "хутор",
+      "population": 347
+    },
+    {
+      "name": "Новорусов",
+      "type": "хутор",
+      "population": 96
+    },
+    {
+      "name": "Орехов",
+      "type": "хутор",
+      "population": 152
+    },
+    {
+      "name": "Пентюхов",
+      "type": "хутор",
+      "population": 114
+    },
+    {
+      "name": "Пикалин",
+      "type": "хутор",
+      "population": 59
+    },
+    {
+      "name": "Пшизов",
+      "type": "аул",
+      "population": 957
+    },
+    {
+      "name": "Пшичо",
+      "type": "аул",
+      "population": 1101
+    },
+    {
+      "name": "Свободный Труд",
+      "type": "хутор",
+      "population": 343
+    },
+    {
+      "name": "Семёно-Макаренский",
+      "type": "хутор",
+      "population": 114
+    },
+    {
+      "name": "Тихонов",
+      "type": "хутор",
+      "population": 376
+    },
+    {
+      "name": "Ульский",
+      "type": "посёлок",
+      "population": 147
+    },
+    {
+      "name": "Хакуринохабль",
+      "type": "аул",
+      "population": 4038
+    },
+    {
+      "name": "Хапачев",
+      "type": "хутор",
+      "population": 217
+    },
+    {
+      "name": "Хатажукай",
+      "type": "аул",
+      "population": 1108
+    },
+    {
+      "name": "Чернышев",
+      "type": "хутор",
+      "population": 839
+    },
+    {
+      "name": "Чикалов",
+      "type": "хутор",
+      "population": 123
+    }
+  ]
+}

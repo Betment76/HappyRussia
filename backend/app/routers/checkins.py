@@ -19,7 +19,14 @@ async def create_checkin(
 ):
     """
     Создать новый чек-ин
+    userId (номер телефона) - обязательное поле
     """
+    # Валидация: userId обязателен
+    if not checkin.user_id or checkin.user_id.strip() == "":
+        raise HTTPException(
+            status_code=400,
+            detail="userId (номер телефона) является обязательным полем"
+        )
     # Проверяем, не существует ли уже чек-ин с таким ID
     existing = db.query(CheckInDB).filter(CheckInDB.id == checkin.id).first()
     if existing:
@@ -87,9 +94,14 @@ async def sync_checkins(
 ):
     """
     Синхронизировать несколько чек-инов
+    userId (номер телефона) - обязательное поле для каждого чек-ина
     """
     synced_count = 0
     for checkin in checkins:
+        # Валидация: userId обязателен
+        if not checkin.user_id or checkin.user_id.strip() == "":
+            continue  # Пропускаем чек-ины без userId
+        
         existing = db.query(CheckInDB).filter(CheckInDB.id == checkin.id).first()
         if existing:
             # Обновляем существующий
@@ -122,3 +134,18 @@ async def sync_checkins(
     db.commit()
     return {"message": f"Синхронизировано {synced_count} чек-инов", "count": synced_count}
 
+
+@router.delete("/all", status_code=200)
+async def delete_all_checkins(
+    db: Session = Depends(get_db)
+):
+    """
+    Удалить все чек-ины (только для debug режима)
+    """
+    try:
+        deleted_count = db.query(CheckInDB).delete()
+        db.commit()
+        return {"message": f"Удалено {deleted_count} чек-инов", "count": deleted_count}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении чек-инов: {str(e)}")

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/mood_provider.dart';
+import '../models/region_mood.dart';
 import '../widgets/mood_cards.dart';
+import '../widgets/data_cards.dart';
 import 'check_in_screen.dart';
 import 'profile_screen.dart';
 import 'federal_districts_screen.dart';
 import 'all_cities_screen.dart';
+import 'cities_screen.dart';
 
 /// Главный экран с рейтингом регионов
 class HomeScreen extends StatefulWidget {
@@ -24,19 +27,46 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: 1);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging || _tabController.index != _currentTabIndex) {
+      if (!_tabController.indexIsChanging && _tabController.index != _currentTabIndex) {
         setState(() {
           _currentTabIndex = _tabController.index;
         });
+        // Обновляем данные при переключении вкладок (после завершения анимации)
+        _refreshDataForTab(_tabController.index);
       }
     });
     // Загружаем данные при открытии экрана
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<MoodProvider>();
-      provider.loadFederalDistrictsRanking();
-      provider.loadRegionsRanking();
-      provider.loadAllCitiesRanking();
+      _refreshDataForTab(_currentTabIndex);
     });
+  }
+
+  /// Обновить данные для выбранной вкладки
+  void _refreshDataForTab(int tabIndex) {
+    final provider = context.read<MoodProvider>();
+    // Загружаем данные только если они еще не загружены
+    if (provider.federalDistrictsData.isEmpty) {
+      provider.loadSettlementsData();
+    }
+    
+    // Для вкладки "Города" всегда обновляем данные при переключении
+    if (tabIndex == 2) {
+      // Загружаем settlements и рейтинг городов
+      // Важно: загружаем settlements, чтобы включить новые города с чек-инами
+      if (provider.federalDistrictsData.isEmpty) {
+        provider.loadSettlementsData();
+      }
+      // Всегда обновляем рейтинг городов при переключении на вкладку
+      provider.loadAllCitiesRanking();
+    } else {
+      // Для других вкладок обновляем рейтинги только если они пустые
+      if (provider.federalDistricts.isEmpty) {
+        provider.loadFederalDistrictsRanking();
+      }
+      if (provider.regions.isEmpty) {
+        provider.loadRegionsRanking();
+      }
+    }
   }
 
   @override
@@ -196,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   tabs: const [
                     Tab(text: 'Округа'),
                     Tab(text: 'Регионы'),
-                    Tab(text: 'Города'),
+                    Tab(text: 'Города/Сёла'),
                   ],
                 ),
               ),
@@ -209,30 +239,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     // Вкладка "Округа"
                     const FederalDistrictsScreen(),
                     // Вкладка "Регионы"
-                    provider.regions.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.sentiment_neutral,
-                                  size: 64,
-                                  color: Colors.grey[400],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Нет данных',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: () => provider.loadRegionsRanking(),
-                            child: _buildRegionsList(provider, theme),
-                          ),
+                    RefreshIndicator(
+                      onRefresh: () async {
+                        await provider.loadSettlementsData();
+                        await provider.loadRegionsRanking();
+                      },
+                      child: _buildRegionsList(provider, theme),
+                    ),
                     // Вкладка "Города"
                     const AllCitiesScreen(),
                   ],
@@ -287,9 +300,100 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// Построить список регионов (только с зарегистрированными пользователями)
+  /// Построить список регионов (с актуальными данными из базы)
   Widget _buildRegionsList(MoodProvider provider, ThemeData theme) {
-    // Фильтруем регионы: показываем только те, где есть хотя бы один чек-ин
+    // Если есть актуальные данные, показываем их
+    if (provider.federalDistrictsData.isNotEmpty) {
+      final allRegions = provider.getAllRegionsData();
+      
+      if (allRegions.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.map_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Загрузка данных о регионах...',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Сортируем регионы: сначала по счастью (если есть голоса), потом по населению
+      final regionsWithMood = allRegions.map((regionData) {
+        RegionMood? regionMood;
+        try {
+          regionMood = provider.regions.firstWhere(
+            (r) => r.id == regionData.id,
+          );
+        } catch (e) {
+          regionMood = null;
+        }
+        return {
+          'data': regionData,
+          'mood': regionMood,
+        };
+      }).toList();
+      
+      regionsWithMood.sort((a, b) {
+        final aMood = a['mood'] as RegionMood?;
+        final bMood = b['mood'] as RegionMood?;
+        
+        final aHasVotes = aMood != null && aMood.totalCheckIns > 0;
+        final bHasVotes = bMood != null && bMood.totalCheckIns > 0;
+        
+        // Если у обоих есть голоса - сортируем по счастью
+        if (aHasVotes && bHasVotes) {
+          return bMood!.averageMood.compareTo(aMood!.averageMood);
+        }
+        // Если только у одного есть голоса - он выше
+        if (aHasVotes && !bHasVotes) return -1;
+        if (!aHasVotes && bHasVotes) return 1;
+        // Если у обоих нет голосов - сортируем по населению
+        final aData = a['data'] as dynamic;
+        final bData = b['data'] as dynamic;
+        return bData.population.compareTo(aData.population);
+      });
+
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: regionsWithMood.length,
+        itemBuilder: (context, index) {
+          final item = regionsWithMood[index];
+          final regionData = item['data'] as dynamic;
+          final regionMood = item['mood'] as RegionMood?;
+
+          // Всегда показываем карточку настроения (со смайликом и статус-баром)
+          // Если нет реальных данных по настроению, подставляем нули
+          final moodForCard = regionMood ??
+              RegionMood(
+                id: regionData.id,
+                name: regionData.name,
+                averageMood: 0,
+                totalCheckIns: 0,
+                population: regionData.population,
+                lastUpdate: DateTime.fromMillisecondsSinceEpoch(0),
+              );
+
+          return RegionCard(
+            region: moodForCard,
+            isClickable: false, // кликабельность отключена по требованию
+          );
+        },
+      );
+    }
+
+    // Fallback: показываем данные о настроении, если они есть
     final filteredRegions = provider.regions
         .where((region) => region.totalCheckIns > 0)
         .toList();
@@ -300,13 +404,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.sentiment_neutral,
+              Icons.map_outlined,
               size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              'Нет регионов с зарегистрированными пользователями',
+              'Загрузка данных о регионах...',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -323,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       itemBuilder: (context, index) {
         return RegionCard(
           region: filteredRegions[index],
-          isClickable: true,
+          isClickable: false,
         );
       },
     );

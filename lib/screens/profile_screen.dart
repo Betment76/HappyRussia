@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../services/storage_service.dart';
+import '../services/settlements_data_service.dart';
 import '../providers/mood_provider.dart';
 import '../models/federal_district_mood.dart';
 import '../models/region_mood.dart';
+import '../models/region_data.dart';
 import '../models/city_mood.dart';
+import '../models/settlement.dart';
 import '../widgets/mood_cards.dart';
 
 /// Экран профиля с историей чек-инов
@@ -33,18 +37,304 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _federalDistrictName;
   String? _regionName;
   String? _cityName;
+  
+  // Поиск города для выбора места проживания
+  final TextEditingController _citySearchController = TextEditingController();
+  String _citySearchQuery = '';
+  List<Settlement> _searchResults = [];
+  Map<String, String> _settlementToRegion = {}; // Маппинг: settlement.id -> region.name
+  Map<String, String> _settlementToDistrict = {}; // Маппинг: settlement.id -> district.name (район)
+  bool _isSearching = false;
+  Settlement? _selectedSettlement;
+  String? _selectedSettlementRegionName;
 
   @override
   void initState() {
     super.initState();
+    _citySearchController.addListener(_onCitySearchChanged);
     _loadAllData();
     // Загружаем данные из провайдера
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<MoodProvider>();
       provider.loadFederalDistrictsRanking();
       provider.loadRegionsRanking();
       provider.loadAllCitiesRanking();
+      await provider.loadSettlementsData();
+      // Загружаем выбранный населенный пункт, если есть местоположение
+      if (_profileLocation != null && _profileLocation!.isNotEmpty) {
+        await _loadSelectedSettlementFromLocation(_profileLocation!);
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _citySearchController.dispose();
+    super.dispose();
+  }
+
+  /// Обработчик изменения текста в поисковой строке
+  void _onCitySearchChanged() {
+    final query = _citySearchController.text.trim();
+    setState(() {
+      _citySearchQuery = query;
+      _isSearching = query.isNotEmpty;
+    });
+    
+    if (query.isNotEmpty) {
+      _performCitySearch(query);
+    } else {
+      setState(() {
+        _searchResults = [];
+      });
+    }
+  }
+
+  /// Выполнить поиск городов
+  Future<void> _performCitySearch(String query) async {
+    try {
+      final service = SettlementsDataService();
+      final results = await service.searchSettlements(query);
+      
+      // Сначала показываем результаты без регионов, чтобы UI не зависал
+      setState(() {
+        _searchResults = results;
+        _settlementToRegion = {}; // Очищаем старые данные
+      });
+      
+      // Находим регионы для найденных населенных пунктов асинхронно
+      // Выполняем в отдельном Future, чтобы не блокировать UI
+      Future.microtask(() async {
+        final provider = context.read<MoodProvider>();
+        await provider.loadSettlementsData();
+        final allRegions = provider.getAllRegionsData();
+        final settlementToRegion = <String, String>{};
+        final settlementToDistrict = <String, String>{};
+        
+        // Ограничиваем количество обрабатываемых результатов для производительности
+        final resultsToProcess = results.take(20).toList();
+        
+        for (final settlement in resultsToProcess) {
+          String? regionName;
+          String? districtName;
+          
+          // Извлекаем ID региона из ID населенного пункта (формат: "24-673" -> "24")
+          final regionIdFromSettlement = settlement.id.split('-').first;
+          
+          // Ищем регион по ID из settlement.id
+          bool found = false;
+          try {
+            final region = allRegions.firstWhere(
+              (r) => r.id == regionIdFromSettlement,
+            );
+            
+            // Проверяем города региона
+            for (final city in region.cities) {
+              if (city.id == settlement.id) {
+                regionName = region.name;
+                found = true;
+                break;
+              }
+            }
+            
+            // Если не нашли в городах, проверяем населенные пункты в округах
+            if (!found) {
+              for (final district in region.urbanDistricts) {
+                for (final s in district.settlements) {
+                  if (s.id == settlement.id) {
+                    regionName = region.name;
+                    districtName = district.name;
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
+              }
+            }
+          } catch (e) {
+            // Если не нашли регион по ID, используем старую логику поиска по всем регионам
+            // (но это должно быть редко)
+            for (final region in allRegions) {
+              // Проверяем города региона
+              for (final city in region.cities) {
+                if (city.id == settlement.id) {
+                  regionName = region.name;
+                  found = true;
+                  break;
+                }
+              }
+              if (found) break;
+              
+              // Проверяем населенные пункты в округах
+              for (final district in region.urbanDistricts) {
+                for (final s in district.settlements) {
+                  if (s.id == settlement.id) {
+                    regionName = region.name;
+                    districtName = district.name;
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
+              }
+              if (found) break;
+            }
+          }
+          
+          if (regionName != null) {
+            settlementToRegion[settlement.id] = regionName;
+          }
+          if (districtName != null) {
+            settlementToDistrict[settlement.id] = districtName;
+          }
+        }
+        
+        // Обновляем UI только если виджет еще смонтирован и запрос не изменился
+        if (mounted && _citySearchQuery == query) {
+          setState(() {
+            _settlementToRegion = settlementToRegion;
+            _settlementToDistrict = settlementToDistrict;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Ошибка поиска городов: $e');
+    }
+  }
+
+  /// Выбрать город/населенный пункт
+  Future<void> _selectSettlement(Settlement settlement) async {
+    // Находим регион для этого населенного пункта
+    final provider = context.read<MoodProvider>();
+    await provider.loadSettlementsData();
+    final allRegions = provider.getAllRegionsData();
+    
+    String? regionName;
+    String? federalDistrictName;
+    
+    // Извлекаем ID региона из ID населенного пункта (формат: "24-673" -> "24")
+    final regionIdFromSettlement = settlement.id.split('-').first;
+    debugPrint('Выбран населенный пункт: ${settlement.name}, ID: ${settlement.id}, ID региона: $regionIdFromSettlement');
+    
+    // Ищем регион по ID из settlement.id
+    try {
+      final region = allRegions.firstWhere(
+        (r) => r.id == regionIdFromSettlement,
+      );
+      debugPrint('Найден регион по ID: ${region.name} (ID: ${region.id})');
+      
+      // Проверяем города региона
+      bool found = false;
+      for (final city in region.cities) {
+        if (city.id == settlement.id) {
+          regionName = region.name;
+          federalDistrictName = region.federalDistrict;
+          found = true;
+          debugPrint('Найден в городах региона: ${region.name}');
+          break;
+        }
+      }
+      
+      // Если не нашли в городах, проверяем населенные пункты в округах
+      if (!found) {
+        for (final district in region.urbanDistricts) {
+          for (final s in district.settlements) {
+            if (s.id == settlement.id) {
+              regionName = region.name;
+              federalDistrictName = region.federalDistrict;
+              found = true;
+              debugPrint('Найден в округах региона: ${region.name}, район: ${district.name}');
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+      
+      if (!found) {
+        debugPrint('⚠️ Населенный пункт не найден в регионе ${region.name} по ID ${settlement.id}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Регион с ID $regionIdFromSettlement не найден. Ошибка: $e');
+      // Если не нашли регион по ID, используем старую логику поиска по всем регионам
+      for (final region in allRegions) {
+        // Проверяем города региона
+        for (final city in region.cities) {
+          if (city.id == settlement.id) {
+            regionName = region.name;
+            federalDistrictName = region.federalDistrict;
+            debugPrint('Найден в городах (поиск по всем регионам): ${region.name}');
+            break;
+          }
+        }
+        if (regionName != null) break;
+        
+        // Проверяем населенные пункты в округах
+        for (final district in region.urbanDistricts) {
+          for (final s in district.settlements) {
+            if (s.id == settlement.id) {
+              regionName = region.name;
+              federalDistrictName = region.federalDistrict;
+              debugPrint('Найден в округах (поиск по всем регионам): ${region.name}, район: ${district.name}');
+              break;
+            }
+          }
+          if (regionName != null) break;
+        }
+        if (regionName != null) break;
+      }
+    }
+    
+    debugPrint('Итоговый регион для ${settlement.name}: $regionName');
+    
+    // Если регион не найден, пытаемся найти его еще раз через SettlementsDataService
+    if (regionName == null) {
+      debugPrint('⚠️ Регион не найден, пытаемся найти через SettlementsDataService');
+      try {
+        final service = SettlementsDataService();
+        final region = await service.findRegionById(regionIdFromSettlement);
+        if (region != null) {
+          regionName = region.name;
+          federalDistrictName = region.federalDistrict;
+          debugPrint('✓ Регион найден через SettlementsDataService: $regionName');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Ошибка поиска региона через SettlementsDataService: $e');
+      }
+    }
+    
+    debugPrint('Финальный регион для сохранения: $regionName');
+    
+    setState(() {
+      _selectedSettlement = settlement;
+      _selectedSettlementRegionName = regionName;
+      _citySearchQuery = '';
+      _citySearchController.clear();
+      _searchResults = [];
+      _isSearching = false;
+    });
+    
+    // Сохраняем выбранное место в профиль
+    if (federalDistrictName != null && regionName != null) {
+      String location;
+      if (settlement.type.toLowerCase() == 'город') {
+        location = '$federalDistrictName - $regionName - ${settlement.name}';
+      } else {
+        // Для сел/деревень/поселков нужно найти район
+        // Пока используем упрощенный формат
+        location = '$federalDistrictName - $regionName - ${settlement.name}';
+      }
+      
+      await _storageService.saveProfile(
+        name: _profileName ?? '',
+        imagePath: _profileImagePath ?? '',
+        location: location,
+        phone: _profilePhone,
+      );
+      
+      // Перезагружаем данные профиля
+      await _loadProfileData();
+    }
   }
 
   @override
@@ -90,6 +380,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Парсим место регистрации
           if (location != null && location.isNotEmpty) {
             _parseLocation(location);
+            // Загружаем выбранный населенный пункт, если есть
+            _loadSelectedSettlementFromLocation(location);
+          } else {
+            _selectedSettlement = null;
+            _selectedSettlementRegionName = null;
           }
         });
       }
@@ -123,6 +418,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
             tooltip: 'Обновить',
           ),
+          // Кнопка сброса только в дебаг версии
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _showResetDialog,
+              tooltip: 'Сбросить данные (Debug)',
+            ),
         ],
       ),
       body: _isLoading
@@ -137,58 +439,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SliverToBoxAdapter(
                     child: _buildProfileHeader(theme),
                   ),
-                  // Карточка округа
-                  if (_federalDistrictName != null)
+                  // Поисковая строка для выбора города проживания
+                  SliverToBoxAdapter(
+                    child: _buildCitySearchSection(theme),
+                  ),
+                  // Карточка города (только одна, самая нижняя)
+                  if (_selectedSettlement != null)
                     SliverToBoxAdapter(
                       child: Consumer<MoodProvider>(
                         builder: (context, provider, _) {
-                          final district = _findFederalDistrict(_federalDistrictName!, provider);
-                          if (district != null) {
-                            return FederalDistrictCard(
-                              district: district,
-                              isClickable: false,
+                          final settlement = _selectedSettlement!;
+                          final regionId = settlement.id.split('-').first;
+                          
+                          // Пытаемся найти данные о настроении для этого населенного пункта
+                          CityMood? cityMood;
+                          
+                          try {
+                            // Сначала ищем по точному совпадению ID
+                            cityMood = provider.allCities.firstWhere(
+                              (c) => c.id == settlement.id,
                             );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ),
-                  // Карточка региона
-                  if (_regionName != null)
-                    SliverToBoxAdapter(
-                      child: Consumer<MoodProvider>(
-                        builder: (context, provider, _) {
-                          final region = _findRegion(_regionName!, provider);
-                          if (region != null) {
-                            return RegionCard(
-                              region: region,
-                              isClickable: false,
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ),
-                  // Карточка города
-                  if (_cityName != null)
-                    SliverToBoxAdapter(
-                      child: Consumer<MoodProvider>(
-                        builder: (context, provider, _) {
-                          final city = _findCity(_cityName!, provider);
-                          if (city != null) {
-                            // Находим ранг города в общем списке
-                            int rank = provider.allCities.indexWhere((c) => c.id == city.id) + 1;
-                            if (rank == 0) {
-                              // Если город не найден в списке, используем 0
-                              rank = 1;
+                          } catch (e) {
+                            try {
+                              // Затем ищем по комбинации regionId + имя
+                              cityMood = provider.allCities.firstWhere(
+                                (c) => c.regionId == regionId &&
+                                      c.name.toLowerCase().trim() == settlement.name.toLowerCase().trim(),
+                              );
+                            } catch (e) {
+                              try {
+                                // Затем ищем по точному совпадению имени
+                                cityMood = provider.allCities.firstWhere(
+                                  (c) => c.name.toLowerCase().trim() == settlement.name.toLowerCase().trim(),
+                                );
+                              } catch (e) {
+                                try {
+                                  // Затем ищем по частичному совпадению имени с учетом regionId
+                                  cityMood = provider.allCities.firstWhere(
+                                    (c) => c.regionId == regionId &&
+                                          (c.name.toLowerCase().trim().contains(settlement.name.toLowerCase().trim()) ||
+                                           settlement.name.toLowerCase().trim().contains(c.name.toLowerCase().trim())),
+                                  );
+                                } catch (e) {
+                                  try {
+                                    // Последняя попытка: частичное совпадение имени без regionId
+                                    cityMood = provider.allCities.firstWhere(
+                                      (c) => c.name.toLowerCase().trim().contains(settlement.name.toLowerCase().trim()) ||
+                                            settlement.name.toLowerCase().trim().contains(c.name.toLowerCase().trim()),
+                                    );
+                                  } catch (e) {
+                                    cityMood = null;
+                                  }
+                                }
+                              }
                             }
-                            return CityCard(
-                              city: city,
+                          }
+                          
+                          // Если данных нет, создаем заглушку с нулевым настроением
+                          final moodForCard = cityMood ?? CityMood(
+                            id: settlement.id,
+                            name: settlement.name,
+                            regionId: regionId,
+                            averageMood: 0,
+                            totalCheckIns: 0,
+                            population: settlement.population,
+                            lastUpdate: DateTime.fromMillisecondsSinceEpoch(0),
+                          );
+                          
+                          // Находим ранг города в общем списке (с учетом сортировки как в AllCitiesScreen)
+                          final sortedCities = List<CityMood>.from(provider.allCities);
+                          sortedCities.sort((a, b) {
+                            final aHasVotes = a.totalCheckIns > 0;
+                            final bHasVotes = b.totalCheckIns > 0;
+                            
+                            if (aHasVotes && bHasVotes) {
+                              return b.averageMood.compareTo(a.averageMood);
+                            }
+                            if (aHasVotes && !bHasVotes) return -1;
+                            if (!aHasVotes && bHasVotes) return 1;
+                            return b.population.compareTo(a.population);
+                          });
+                          
+                          int rank = sortedCities.indexWhere((c) => c.id == moodForCard.id) + 1;
+                          if (rank == 0) {
+                            rank = sortedCities.length + 1;
+                          }
+                          
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: CityCard(
+                              city: moodForCard,
                               rank: rank,
                               isClickable: false,
-                            );
-                          }
-                          return const SizedBox.shrink();
+                              settlementType: settlement.type,
+                              regionName: _selectedSettlementRegionName,
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -503,6 +849,393 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Загрузить выбранный населенный пункт из местоположения
+  Future<void> _loadSelectedSettlementFromLocation(String location) async {
+    if (_cityName == null || _cityName!.isEmpty) {
+      _selectedSettlement = null;
+      _selectedSettlementRegionName = null;
+      return;
+    }
+
+    try {
+      final provider = context.read<MoodProvider>();
+      await provider.loadSettlementsData();
+      final service = SettlementsDataService();
+      
+      // Ищем населенный пункт по имени
+      final results = await service.searchSettlements(_cityName!);
+      if (results.isNotEmpty) {
+        // Пытаемся найти населенный пункт, который соответствует сохраненному региону
+        Settlement? settlement;
+        String? regionName;
+        
+        // Если есть информация о регионе в location, используем её для точного поиска
+        if (_regionName != null && _regionName!.isNotEmpty) {
+          final allRegions = provider.getAllRegionsData();
+          // Ищем регион по имени из сохраненного местоположения
+          RegionData? targetRegion;
+          try {
+            targetRegion = allRegions.firstWhere(
+              (r) => r.name.toLowerCase() == _regionName!.toLowerCase(),
+            );
+          } catch (e) {
+            // Регион не найден по точному совпадению, ищем по частичному
+            try {
+              targetRegion = allRegions.firstWhere(
+                (r) => r.name.toLowerCase().contains(_regionName!.toLowerCase()) ||
+                    _regionName!.toLowerCase().contains(r.name.toLowerCase()),
+              );
+            } catch (e) {
+              targetRegion = null;
+            }
+          }
+          
+          if (targetRegion != null) {
+            // Ищем населенный пункт в этом регионе
+            for (final result in results) {
+              final regionIdFromSettlement = result.id.split('-').first;
+              if (regionIdFromSettlement == targetRegion.id) {
+                settlement = result;
+                regionName = targetRegion.name;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Если не нашли по региону, берем первый результат и определяем регион по ID
+        if (settlement == null) {
+          settlement = results.first;
+          
+          // Извлекаем ID региона из ID населенного пункта (формат: "24-673" -> "24")
+          final regionIdFromSettlement = settlement.id.split('-').first;
+          final allRegions = provider.getAllRegionsData();
+          
+          try {
+            final region = allRegions.firstWhere(
+              (r) => r.id == regionIdFromSettlement,
+            );
+            
+            // Проверяем, что населенный пункт действительно в этом регионе
+            bool found = false;
+            for (final city in region.cities) {
+              if (city.id == settlement.id) {
+                regionName = region.name;
+                found = true;
+                break;
+              }
+            }
+            
+            if (!found) {
+              for (final district in region.urbanDistricts) {
+                for (final s in district.settlements) {
+                  if (s.id == settlement.id) {
+                    regionName = region.name;
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
+              }
+            }
+          } catch (e) {
+            debugPrint('⚠️ Регион с ID $regionIdFromSettlement не найден при загрузке из местоположения: $e');
+          }
+        }
+        
+        if (mounted && settlement != null) {
+          debugPrint('Загружен населенный пункт из местоположения: ${settlement.name}, регион: $regionName');
+          setState(() {
+            _selectedSettlement = settlement;
+            _selectedSettlementRegionName = regionName;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Ошибка загрузки выбранного населенного пункта: $e');
+    }
+  }
+
+  /// Построить секцию поиска города
+  Widget _buildCitySearchSection(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(
+            'Город проживания',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF0039A6),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _citySearchController,
+            decoration: InputDecoration(
+              hintText: 'Поиск города, села, деревни...',
+              prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+              suffixIcon: _citySearchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        _citySearchController.clear();
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.grey[100],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              isDense: true,
+            ),
+          ),
+          // Результаты поиска
+          if (_isSearching && _searchResults.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _searchResults.length > 20 ? 20 : _searchResults.length,
+                itemBuilder: (context, index) {
+                  final settlement = _searchResults[index];
+                  final regionName = _settlementToRegion[settlement.id];
+                  final districtName = _settlementToDistrict[settlement.id];
+                  
+                  // Формируем строку с информацией
+                  final populationStr = settlement.population.toString().replaceAllMapped(
+                    RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+                    (Match m) => '${m[1]} ',
+                  );
+                  
+                  String subtitleText = '${settlement.type} • $populationStr чел.';
+                  if (districtName != null) {
+                    subtitleText += ' • $districtName';
+                  }
+                  if (regionName != null) {
+                    subtitleText += ' • $regionName';
+                  }
+                  
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      settlement.name,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    subtitle: Text(
+                      subtitleText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    onTap: () => _selectSettlement(settlement),
+                  );
+                },
+              ),
+            ),
+          ],
+          if (_isSearching && _searchResults.isEmpty && _citySearchQuery.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Ничего не найдено',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// Построить карточку выбранного населенного пункта
+  Widget _buildSelectedSettlementCard(ThemeData theme) {
+    if (_selectedSettlement == null) return const SizedBox.shrink();
+    
+    return Consumer<MoodProvider>(
+      builder: (context, provider, child) {
+        // Пытаемся найти данные о настроении для этого населенного пункта
+        // Важно: ищем только по ID, чтобы не найти неправильный город с таким же названием
+        CityMood? cityMood;
+        try {
+          cityMood = provider.allCities.firstWhere(
+            (c) => c.id == _selectedSettlement!.id,
+          );
+        } catch (e) {
+          // Если не нашли по ID, не ищем по имени, чтобы избежать неправильного совпадения
+          cityMood = null;
+        }
+
+        // Если данных нет, создаем заглушку
+        final moodForCard = cityMood ?? CityMood(
+          id: _selectedSettlement!.id,
+          name: _selectedSettlement!.name,
+          regionId: '',
+          averageMood: 0,
+          totalCheckIns: 0,
+          population: _selectedSettlement!.population,
+          lastUpdate: DateTime.fromMillisecondsSinceEpoch(0),
+        );
+
+        // Находим ранг города в общем списке
+        int rank = provider.allCities.indexWhere((c) => c.id == moodForCard.id) + 1;
+        if (rank == 0) {
+          rank = 1;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: CityCard(
+            city: moodForCard,
+            rank: rank,
+            isClickable: false,
+            settlementType: _selectedSettlement!.type,
+            regionName: _selectedSettlementRegionName,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Показать диалог подтверждения сброса
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Сброс данных (Debug)'),
+          content: const Text(
+            'Вы уверены, что хотите сбросить:\n'
+            '• Все чек-ины\n'
+            '• Местоположение (город проживания)\n'
+            '• Кэш рейтингов\n\n'
+            'Это действие нельзя отменить.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetData();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Сбросить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Сбросить данные (город и голосования)
+  Future<void> _resetData() async {
+    try {
+      // Показываем индикатор загрузки
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // Очищаем данные голосования локально
+      await _storageService.clearCheckIns();
+      
+      // Очищаем чек-ины на сервере
+      try {
+        final provider = context.read<MoodProvider>();
+        await provider.deleteAllCheckIns();
+      } catch (e) {
+        debugPrint('⚠️ Ошибка удаления чек-инов на сервере: $e');
+        // Продолжаем выполнение, даже если не удалось удалить на сервере
+      }
+      
+      // Очищаем кэш рейтингов
+      await _storageService.clearRankingsCache();
+      
+      // Очищаем выбор города из профиля
+      await _storageService.clearProfileLocation();
+      
+      // Очищаем состояние выбранного города
+      setState(() {
+        _selectedSettlement = null;
+        _selectedSettlementRegionName = null;
+        _profileLocation = null;
+        _federalDistrictName = null;
+        _regionName = null;
+        _cityName = null;
+      });
+
+      // Перезагружаем данные профиля
+      await _loadProfileData();
+
+      // Обновляем провайдер для пересчета рейтингов (загружаем свежие данные с сервера)
+      final provider = context.read<MoodProvider>();
+      await provider.loadSettlementsData();
+      await provider.loadFederalDistrictsRanking();
+      await provider.loadRegionsRanking();
+      await provider.loadAllCitiesRanking();
+
+      if (mounted) {
+        Navigator.pop(context); // Закрываем индикатор загрузки
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Данные успешно сброшены'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Закрываем индикатор загрузки
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при сбросе данных: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

@@ -48,11 +48,25 @@ class CheckInDB(Base):
     region_name = Column(String, nullable=False)
     mood = Column(Integer, nullable=False)  # 1-5
     date = Column(DateTime, nullable=False, index=True)
-    user_id = Column(String, nullable=True)
+    user_id = Column(String, nullable=True, index=True)
     city_id = Column(String, index=True, nullable=True)
     city_name = Column(String, nullable=True)
     federal_district = Column(String, nullable=True)
     district = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class UserDB(Base):
+    """Модель пользователя в базе данных"""
+    __tablename__ = "users"
+
+    user_id = Column(String, primary_key=True)  # Номер телефона
+    name = Column(String, nullable=False)
+    registration_city_id = Column(String, nullable=True)
+    registration_city_name = Column(String, nullable=True)
+    registration_region_id = Column(String, nullable=True)
+    registration_region_name = Column(String, nullable=True)
+    registration_federal_district = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

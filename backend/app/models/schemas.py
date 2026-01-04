@@ -13,7 +13,7 @@ class CheckInCreate(BaseModel):
     region_name: str = Field(..., alias="regionName")
     mood: int = Field(..., ge=1, le=5)  # 1-5
     date: datetime
-    user_id: Optional[str] = Field(None, alias="userId")
+    user_id: str = Field(..., alias="userId", description="Номер телефона пользователя (обязательное поле)")
     city_id: Optional[str] = Field(None, alias="cityId")
     city_name: Optional[str] = Field(None, alias="cityName")
     federal_district: Optional[str] = Field(None, alias="federalDistrict")
@@ -30,7 +30,7 @@ class CheckInResponse(BaseModel):
     region_name: str = Field(..., alias="regionName")
     mood: int
     date: datetime
-    user_id: Optional[str] = Field(None, alias="userId")
+    user_id: str = Field(..., alias="userId", description="Номер телефона пользователя")
     city_id: Optional[str] = Field(None, alias="cityId")
     city_name: Optional[str] = Field(None, alias="cityName")
     federal_district: Optional[str] = Field(None, alias="federalDistrict")
@@ -93,3 +93,31 @@ class FederalDistrictMoodResponse(BaseModel):
     class Config:
         populate_by_name = True
 
+
+class UserCreate(BaseModel):
+    """Схема для создания/обновления пользователя"""
+    user_id: str = Field(..., alias="userId")  # Номер телефона
+    name: str
+    registration_city_id: Optional[str] = Field(None, alias="registrationCityId")
+    registration_city_name: Optional[str] = Field(None, alias="registrationCityName")
+    registration_region_id: Optional[str] = Field(None, alias="registrationRegionId")
+    registration_region_name: Optional[str] = Field(None, alias="registrationRegionName")
+    registration_federal_district: Optional[str] = Field(None, alias="registrationFederalDistrict")
+
+    class Config:
+        populate_by_name = True
+
+
+class UserResponse(BaseModel):
+    """Схема ответа для пользователя"""
+    user_id: str = Field(..., alias="userId")
+    name: str
+    registration_city_id: Optional[str] = Field(None, alias="registrationCityId")
+    registration_city_name: Optional[str] = Field(None, alias="registrationCityName")
+    registration_region_id: Optional[str] = Field(None, alias="registrationRegionId")
+    registration_region_name: Optional[str] = Field(None, alias="registrationRegionName")
+    registration_federal_district: Optional[str] = Field(None, alias="registrationFederalDistrict")
+    created_at: datetime = Field(..., alias="createdAt")
+
+    class Config:
+        populate_by_name = True

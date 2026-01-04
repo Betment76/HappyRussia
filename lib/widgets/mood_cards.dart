@@ -3,9 +3,10 @@ import '../models/city_mood.dart';
 import '../models/region_mood.dart';
 import '../models/federal_district_mood.dart';
 import '../utils/herb_helper.dart';
-import '../screens/districts_screen.dart';
+import '../screens/city_detail_screen.dart';
 import '../screens/cities_screen.dart';
 import '../screens/district_regions_screen.dart';
+import '../screens/region_detail_screen.dart';
 
 /// Общие виджеты карточек для настроения
 /// Эталонные карточки с главного экрана
@@ -26,12 +27,16 @@ class CityCard extends StatelessWidget {
   final CityMood city;
   final int rank; // Порядковый номер в рейтинге
   final bool isClickable; // Можно ли кликать на карточку
+  final String? settlementType; // Тип населённого пункта (город, село, деревня и т.д.)
+  final String? regionName; // Название региона
 
   const CityCard({
     super.key,
     required this.city,
     required this.rank,
     this.isClickable = true,
+    this.settlementType,
+    this.regionName,
   });
 
   @override
@@ -106,33 +111,47 @@ class CityCard extends StatelessWidget {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
-                      child: Text(
-                        city.name,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0039A6),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${city.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
-                          style: theme.textTheme.bodySmall?.copyWith(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              city.name,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0039A6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.people_outline,
+                            size: 14,
                             color: Colors.grey[600],
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '${city.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    if (settlementType != null && settlementType!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        regionName != null && regionName!.isNotEmpty
+                            ? '(${settlementType!.toLowerCase()}, $regionName)'
+                            : '(${settlementType!.toLowerCase()})',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -215,11 +234,11 @@ class CityCard extends StatelessWidget {
       child: isClickable
           ? InkWell(
               onTap: () {
-                Navigator.push(
+                // Навигация через именованный маршрут для поддержки deep linking
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => DistrictsScreen(city: city),
-                  ),
+                  '/city/${city.id}',
+                  arguments: city,
                 );
               },
               borderRadius: BorderRadius.circular(12),
@@ -432,7 +451,7 @@ class RegionCard extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CitiesScreen(region: region),
+                    builder: (_) => RegionDetailScreen(region: region),
                   ),
                 );
               },

@@ -17,32 +17,39 @@ class ApiService {
     // Продакшен URL на Yandex Cloud
     const String productionUrl = 'https://bbas207e8gbhlpbjb51u.containers.yandexcloud.net/api';
     
-    // Для разработки можно использовать локальный сервер
-    // Раскомментируйте нужный вариант и закомментируйте productionUrl
-    
-    if (kIsWeb) {
-      return productionUrl;
-      // return 'http://localhost:8000/api'; // Для локальной разработки
-    } else if (Platform.isAndroid) {
-      return productionUrl;
-      // return 'http://10.0.2.2:8000/api'; // Для Android эмулятора (локально)
-    } else if (Platform.isIOS) {
-      return productionUrl;
-      // return 'http://localhost:8000/api'; // Для iOS симулятора (локально)
+    // В режиме отладки используем локальный сервер
+    // Для продакшена используем productionUrl
+    if (kDebugMode) {
+      // Локальный бекенд для разработки
+      if (kIsWeb) {
+        return 'http://localhost:8000/api'; // Для веб-разработки
+      } else if (Platform.isAndroid) {
+        return 'http://10.0.2.2:8000/api'; // Для Android эмулятора
+        // Для реального Android устройства используйте IP вашего компьютера:
+        // return 'http://192.168.1.XXX:8000/api'; // Замените XXX на IP вашего компьютера
+      } else if (Platform.isIOS) {
+        return 'http://localhost:8000/api'; // Для iOS симулятора
+        // Для реального iOS устройства используйте IP вашего компьютера:
+        // return 'http://192.168.1.XXX:8000/api'; // Замените XXX на IP вашего компьютера
+      } else {
+        return 'http://localhost:8000/api'; // Для других платформ
+      }
     } else {
+      // Продакшен
       return productionUrl;
-      // return 'http://localhost:8000/api'; // Для других платформ (локально)
     }
   }
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
+    // Увеличиваем таймауты для локальной разработки
+    _dio.options.connectTimeout = const Duration(seconds: 30);
+    _dio.options.receiveTimeout = const Duration(seconds: 30);
     
     // Логирование для отладки
     if (kDebugMode) {
       print('ApiService: Используется baseUrl = $baseUrl');
+      print('ApiService: Таймауты: connect=${_dio.options.connectTimeout}, receive=${_dio.options.receiveTimeout}');
     }
   }
 
@@ -158,6 +165,15 @@ class ApiService {
       return data.map((json) => FederalDistrictMood.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Ошибка загрузки рейтинга федеральных округов: $e');
+    }
+  }
+
+  /// Удалить все чек-ины (для debug режима)
+  Future<void> deleteAllCheckIns() async {
+    try {
+      await _dio.delete('/checkins/all');
+    } catch (e) {
+      throw Exception('Ошибка удаления чек-инов: $e');
     }
   }
 }

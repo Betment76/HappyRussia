@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.routers import checkins, rankings
+from app.routers import checkins, rankings, users
 
 
 # Инициализация базы данных при старте
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(checkins.router, prefix="/api")
 app.include_router(rankings.router, prefix="/api")
 app.include_router(rankings.cities_router, prefix="/api")
+app.include_router(users.router, prefix="/api")
 
 
 @app.get("/")

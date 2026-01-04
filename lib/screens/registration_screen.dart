@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/storage_service.dart';
+import '../services/settlements_data_service.dart';
+import '../providers/mood_provider.dart';
+import '../models/settlement.dart';
 
 /// Экран регистрации пользователя
 class RegistrationScreen extends StatefulWidget {
@@ -31,17 +35,119 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // Местоположение
   UserLocation? _userLocation;
   bool _isDetectingLocation = false;
+  
+  // Поиск города для выбора места проживания
+  final TextEditingController _citySearchController = TextEditingController();
+  String _citySearchQuery = '';
+  List<Settlement> _searchResults = [];
+  bool _isSearching = false;
+  Settlement? _selectedSettlement;
+  String? _selectedSettlementRegionName;
+  String? _selectedSettlementFederalDistrict;
 
   @override
   void initState() {
     super.initState();
+    _citySearchController.addListener(_onCitySearchChanged);
+    // Загружаем данные о населенных пунктах
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<MoodProvider>();
+      provider.loadSettlementsData();
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _citySearchController.dispose();
     super.dispose();
+  }
+
+  /// Обработчик изменения текста в поисковой строке
+  void _onCitySearchChanged() {
+    final query = _citySearchController.text.trim();
+    setState(() {
+      _citySearchQuery = query;
+      _isSearching = query.isNotEmpty;
+    });
+    
+    if (query.isNotEmpty) {
+      _performCitySearch(query);
+    } else {
+      setState(() {
+        _searchResults = [];
+      });
+    }
+  }
+
+  /// Выполнить поиск городов
+  Future<void> _performCitySearch(String query) async {
+    try {
+      final service = SettlementsDataService();
+      final results = await service.searchSettlements(query);
+      setState(() {
+        _searchResults = results;
+      });
+    } catch (e) {
+      debugPrint('Ошибка поиска городов: $e');
+    }
+  }
+
+  /// Выбрать город/населенный пункт
+  Future<void> _selectSettlement(Settlement settlement) async {
+    // Находим регион и округ для этого населенного пункта
+    final provider = context.read<MoodProvider>();
+    await provider.loadSettlementsData();
+    final allRegions = provider.getAllRegionsData();
+    
+    String? regionName;
+    String? federalDistrictName;
+    
+    for (final region in allRegions) {
+      // Проверяем города региона
+      for (final city in region.cities) {
+        if (city.id == settlement.id || city.name == settlement.name) {
+          regionName = region.name;
+          federalDistrictName = region.federalDistrict;
+          break;
+        }
+      }
+      if (regionName != null) break;
+      
+      // Проверяем населенные пункты в округах
+      for (final district in region.urbanDistricts) {
+        for (final s in district.settlements) {
+          if (s.id == settlement.id || s.name == settlement.name) {
+            regionName = region.name;
+            federalDistrictName = region.federalDistrict;
+            break;
+          }
+        }
+        if (regionName != null) break;
+      }
+      if (regionName != null) break;
+    }
+    
+    setState(() {
+      _selectedSettlement = settlement;
+      _selectedSettlementRegionName = regionName;
+      _selectedSettlementFederalDistrict = federalDistrictName;
+      _citySearchQuery = '';
+      _citySearchController.clear();
+      _searchResults = [];
+      _isSearching = false;
+    });
+    
+    // Создаем UserLocation из выбранного населенного пункта
+    if (federalDistrictName != null && regionName != null) {
+      _userLocation = UserLocation(
+        federalDistrict: federalDistrictName,
+        region: regionName,
+        city: settlement.type.toLowerCase() == 'город' ? settlement.name : null,
+        settlement: settlement.type.toLowerCase() != 'город' ? settlement.name : null,
+      );
+    }
   }
 
   /// Выбрать фото профиля
@@ -204,10 +310,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   /// Обработка регистрации
   Future<void> _handleRegistration() async {
     if (_formKey.currentState!.validate()) {
+      // Проверяем, что выбрано местоположение (либо через GPS, либо через поиск)
+      if ((_userLocation == null || !_userLocation!.isValid) && _selectedSettlement == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Выберите город проживания или определите местоположение'),
+          ),
+        );
+        return;
+      }
+      
+      // Если выбран город через поиск, но нет UserLocation, создаем его
+      if (_selectedSettlement != null && (_userLocation == null || !_userLocation!.isValid)) {
+        if (_selectedSettlementFederalDistrict != null && _selectedSettlementRegionName != null) {
+          _userLocation = UserLocation(
+            federalDistrict: _selectedSettlementFederalDistrict!,
+            region: _selectedSettlementRegionName!,
+            city: _selectedSettlement!.type.toLowerCase() == 'город' ? _selectedSettlement!.name : null,
+            settlement: _selectedSettlement!.type.toLowerCase() != 'город' ? _selectedSettlement!.name : null,
+          );
+        }
+      }
+      
       if (_userLocation == null || !_userLocation!.isValid) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Определите местоположение'),
+            content: Text('Не удалось определить местоположение'),
           ),
         );
         return;
@@ -392,6 +520,134 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ],
               validator: _validatePhone,
             ),
+            const SizedBox(height: 16),
+
+            // Поисковая строка для выбора города проживания
+            Text(
+              'Город проживания',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0039A6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _citySearchController,
+              decoration: InputDecoration(
+                hintText: 'Поиск города, села, деревни...',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                suffixIcon: _citySearchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          _citySearchController.clear();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                isDense: true,
+              ),
+            ),
+            // Результаты поиска
+            if (_isSearching && _searchResults.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _searchResults.length > 10 ? 10 : _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final settlement = _searchResults[index];
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        settlement.name,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      subtitle: Text(
+                        '${settlement.type} • ${settlement.population.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} чел.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      onTap: () => _selectSettlement(settlement),
+                    );
+                  },
+                ),
+              ),
+            ],
+            if (_isSearching && _searchResults.isEmpty && _citySearchQuery.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Ничего не найдено',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+            // Карточка выбранного города
+            if (_selectedSettlement != null) ...[
+              const SizedBox(height: 8),
+              Card(
+                color: Colors.green[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedSettlement!.name,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (_selectedSettlementRegionName != null)
+                              Text(
+                                _selectedSettlementRegionName!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _selectedSettlement = null;
+                            _selectedSettlementRegionName = null;
+                            _selectedSettlementFederalDistrict = null;
+                            _userLocation = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Кнопка определения местоположения

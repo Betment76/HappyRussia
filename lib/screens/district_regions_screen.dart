@@ -3,14 +3,23 @@ import 'package:provider/provider.dart';
 import '../providers/mood_provider.dart';
 import '../models/region_mood.dart';
 import '../models/federal_district_mood.dart';
+import '../models/federal_district_data.dart';
+import '../models/region_data.dart';
 import '../data/russian_regions.dart';
-import 'cities_screen.dart';
+import '../widgets/mood_cards.dart';
+import '../widgets/data_cards.dart';
+import 'region_detail_screen.dart';
 
 /// Экран с рейтингом регионов федерального округа
 class DistrictRegionsScreen extends StatefulWidget {
-  final FederalDistrictMood district;
+  final FederalDistrictMood? district;
+  final FederalDistrictData? districtData;
 
-  const DistrictRegionsScreen({super.key, required this.district});
+  const DistrictRegionsScreen({
+    super.key,
+    this.district,
+    this.districtData,
+  }) : assert(district != null || districtData != null, 'Необходимо указать district или districtData');
 
   @override
   State<DistrictRegionsScreen> createState() => _DistrictRegionsScreenState();
@@ -18,29 +27,53 @@ class DistrictRegionsScreen extends StatefulWidget {
 
 class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
   List<RegionMood> _filteredRegions = [];
+  List<RegionData> _regionsData = [];
+  bool _isLoadingData = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _filterRegions();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<MoodProvider>();
+      await provider.loadSettlementsData();
+      _loadRegions(provider);
     });
   }
 
-  void _filterRegions() {
-    final provider = context.read<MoodProvider>();
-    // Получаем ID регионов этого округа
-    final regionIds = RussianRegions.getByFederalDistrict(widget.district.name)
-        .map((r) => r['id']!)
-        .toSet();
+  void _loadRegions(MoodProvider provider) {
+    final districtName = widget.district?.name ?? widget.districtData?.name ?? '';
     
-    // Фильтруем регионы по ID и показываем только те, где есть хотя бы один чек-ин
-    _filteredRegions = provider.regions
-        .where((region) => regionIds.contains(region.id) && region.totalCheckIns > 0)
-        .toList()
-      ..sort((a, b) => b.averageMood.compareTo(a.averageMood));
+    // Получаем актуальные данные о регионах округа
+    FederalDistrictData? districtDataObj;
+    if (widget.districtData != null) {
+      districtDataObj = widget.districtData;
+    } else {
+      districtDataObj = provider.getFederalDistrictData(districtName);
+    }
     
-    setState(() {});
+    if (districtDataObj != null) {
+      _regionsData = List<RegionData>.from(districtDataObj.regions);
+      // Сортируем регионы по ID (номеру)
+      _regionsData.sort((a, b) => a.id.compareTo(b.id));
+    }
+    
+    // Если есть данные о настроении, фильтруем регионы
+    if (widget.district != null) {
+      // Получаем ID регионов этого округа
+      final regionIds = RussianRegions.getByFederalDistrict(districtName)
+          .map((r) => r['id']!)
+          .toSet();
+      
+      // Фильтруем регионы по ID и показываем только те, где есть хотя бы один чек-ин
+      _filteredRegions = provider.regions
+          .where((region) => regionIds.contains(region.id) && region.totalCheckIns > 0)
+          .toList()
+        ..sort((a, b) => b.averageMood.compareTo(a.averageMood));
+    }
+    
+    setState(() {
+      _isLoadingData = false;
+    });
   }
 
   /// Преобразовать название округа в формат "Название ФО"
@@ -53,22 +86,111 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
     return '$fullName ФО';
   }
 
+  String get _districtName {
+    return widget.district?.name ?? widget.districtData?.name ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_getShortDistrictName(widget.district.name)),
+        title: Text(_getShortDistrictName(_districtName)),
         elevation: 0,
       ),
       body: Consumer<MoodProvider>(
         builder: (context, provider, child) {
-          // Обновляем фильтрацию при изменении данных
-          if (_filteredRegions.isEmpty && provider.regions.isNotEmpty) {
-            _filterRegions();
+          if (_isLoadingData) {
+            return const Center(child: CircularProgressIndicator());
           }
 
+          // Если есть актуальные данные, показываем их
+          if (_regionsData.isNotEmpty) {
+            return RefreshIndicator(
+              onRefresh: () async {
+                await provider.loadSettlementsData();
+                _loadRegions(provider);
+              },
+              child: Column(
+                children: [
+                  // Заголовок с информацией об округе
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white,
+                          const Color(0xFF0039A6),
+                          const Color(0xFFD52B1E),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Рейтинг регионов',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.district != null && widget.district!.totalCheckIns > 0
+                              ? 'Средний балл округа: ${widget.district!.averageMood.toStringAsFixed(1)}/5.0'
+                              : '${_regionsData.length} регионов',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _regionsData.length,
+                      itemBuilder: (context, index) {
+                        final regionData = _regionsData[index];
+                        // Пытаемся найти данные о настроении для этого региона
+                        RegionMood? regionMood;
+                        try {
+                          regionMood = provider.regions.firstWhere(
+                            (r) => r.id == regionData.id && r.totalCheckIns > 0,
+                          );
+                        } catch (e) {
+                          regionMood = null;
+                        }
+                        
+                        // Если есть данные о настроении, показываем карточку с настроением
+                        if (regionMood != null) {
+                          return RegionCard(
+                            region: regionMood!,
+                            isClickable: false,
+                          );
+                        }
+                        
+                        // Иначе показываем карточку с актуальными данными
+                        return RegionDataCard(
+                          region: regionData,
+                          isClickable: false,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Fallback: показываем только регионы с настроением
           if (_filteredRegions.isEmpty) {
             return Center(
               child: Column(
@@ -93,8 +215,9 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
+              await provider.loadSettlementsData();
               await provider.loadRegionsRanking();
-              _filterRegions();
+              _loadRegions(provider);
             },
             child: Column(
               children: [
@@ -125,7 +248,9 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Средний балл округа: ${widget.district.averageMood.toStringAsFixed(1)}/5.0',
+                        widget.district != null
+                            ? 'Средний балл округа: ${widget.district!.averageMood.toStringAsFixed(1)}/5.0'
+                            : '${_regionsData.length} регионов',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: Colors.white,
@@ -163,17 +288,7 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CitiesScreen(region: region),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
+      child: Stack(
           children: [
             // Смайлик настроения с оценкой в правом верхнем углу
             Positioned(
@@ -338,7 +453,6 @@ class _DistrictRegionsScreenState extends State<DistrictRegionsScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 

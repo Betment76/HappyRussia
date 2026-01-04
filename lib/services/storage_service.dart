@@ -80,6 +80,25 @@ class StorageService {
     await prefs.clear();
   }
 
+  /// Очистить только данные голосования (чек-ины)
+  Future<void> clearCheckIns() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_checkInsKey);
+  }
+
+  /// Очистить только данные профиля (кроме имени и фото)
+  Future<void> clearProfileLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_profileLocationKey);
+  }
+
+  /// Очистить кэш рейтингов
+  Future<void> clearRankingsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_regionsKey);
+    await prefs.remove(_lastSyncKey);
+  }
+
   /// Сохранить данные профиля
   Future<void> saveProfile({
     required String name,
